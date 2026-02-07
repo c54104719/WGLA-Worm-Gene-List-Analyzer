@@ -20,7 +20,7 @@ if sys.stdout.encoding != 'utf-8':
 # Constants
 TOTAL_GENES = 49164
 ASPECTS = {
-    'C': ('C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW2_參考答案\GO_Term_domain_type_C_live_only.csv', 'Cellular Component'),
+    'C': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW2_參考答案\GO_Term_domain_type_C_live_only.csv', 'Cellular Component'),
     'F': ('GO_Term_live_only_aspect_F_MolecularFunction_live_only.csv', 'Molecular Function'),
     'P': ('GO_Term_live_only_aspect_P_BiologicalProcess_live_only.csv', 'Biological Process'),
 }
@@ -174,10 +174,10 @@ def save_results(results, output_file, aspect_name):
                     r['go_id'],
                     r['expected_ratio_str'],
                     r['observed_ratio_str'],
-                    f"{r['fold_change']:.4f}",
-                    f"{r['pvalue']:.6f}",
-                    f"{r['pvalue_fdr']:.6f}",
-                    f"{r['pvalue_bonf']:.6f}",
+                    f"{r['fold_change']:.14f}",  # 增加精度到10位
+                    f"{r['pvalue']:.10e}" if r['pvalue'] < 0.0001 else f"{r['pvalue']:.6f}",  # 科学记号或6位小数
+                    f"{r['pvalue_fdr']:.10e}" if r['pvalue_fdr'] < 0.0001 else f"{r['pvalue_fdr']:.6f}",
+                    f"{r['pvalue_bonf']:.10e}" if r['pvalue_bonf'] < 0.0001 else f"{r['pvalue_bonf']:.6f}",
                     f"{r['log2_fc']:.4f}",
                     f"{r['log10_p']:.4f}",
                     f"{r['log10_p_fdr']:.4f}",
