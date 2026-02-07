@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}開發者 - WGLA Worm Gene List Analyzer{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">開發團隊</h1>
+
+<div class="row mb-4">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-body text-center p-5">
+                <h3 class="mb-3">COSBI Lab</h3>
+                <p class="lead text-muted">Computational and Systems Biology Laboratory</p>
+                <p>中央大學 計算與系統生物實驗室</p>
+                <hr class="my-4">
+                <p class="text-muted">本工具由 COSBI Lab 開發與維護</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">專案資訊</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <th scope="row">專案名稱</th>
+                            <td>WGLA: Worm Gene List Analyzer</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">版本</th>
+                            <td>1.0.0</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">目標物種</th>
+                            <td><i>Caenorhabditis elegans</i> (線蟲)</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">資料來源</th>
+                            <td>WormBase</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">統計方法</th>
+                            <td>Fisher's Exact Test</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">校正方法</th>
+                            <td>FDR (Benjamini-Hochberg), Bonferroni</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">技術架構</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="mb-3">後端技術</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Python 3.8+</strong></li>
+                    <li><strong>Django 3.2+</strong></li>
+                    <li><strong>SciPy</strong> - Fisher's Exact Test</li>
+                    <li><strong>statsmodels</strong> - 多重檢定校正</li>
+                    <li><strong>SQLite</strong> - 資料儲存</li>
+                </ul>
+                
+                <h6 class="mb-3 mt-4">前端技術</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Bootstrap 5.1.3</strong></li>
+                    <li><strong>DataTables</strong> - 表格互動</li>
+                    <li><strong>Plotly.js / Chart.js</strong> - 視覺化</li>
+                    <li><strong>jQuery 3.5.1</strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">聯絡方式</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>實驗室聯繫</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>實驗室：</strong> COSBI Lab</li>
+                            <li><strong>單位：</strong> 國立中央大學 生命科學系</li>
+                            <li><strong>Email：</strong> <a href="mailto:cosbi@ncu.edu.tw">cosbi@ncu.edu.tw</a></li>
+                            <li><strong>網站：</strong> <a href="https://cosbi.ncu.edu.tw" target="_blank">https://cosbi.ncu.edu.tw</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>專案資源</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>GitHub：</strong> <a href="https://github.com/cosbi-lab/wgla" target="_blank">github.com/cosbi-lab/wgla</a></li>
+                            <li><strong>文件：</strong> <a href="#" target="_blank">線上說明文件</a></li>
+                            <li><strong>Bug 回報：</strong> <a href="https://github.com/cosbi-lab/wgla/issues" target="_blank">GitHub Issues</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">開發環境設置</h5>
+            </div>
+            <div class="card-body">
+                <h6>快速開始開發</h6>
+                <pre class="bg-light p-3 rounded"><code># Clone repository
+git clone https://github.com/cosbi-lab/wgla.git
+cd wgla
+
+# 建立虛擬環境
+python -m venv .venv
+
+# 啟動虛擬環境 (Windows PowerShell)
+. .\.venv\Scripts\Activate.ps1
+
+# 啟動虛擬環境 (Linux/Mac)
+source .venv/bin/activate
+
+# 安裝相依套件
+pip install -r requirements.txt
+
+# 資料庫遷移
+python manage.py migrate
+
+# 啟動開發伺服器
+python manage.py runserver
+</code></pre>
+
+                <div class="alert alert-warning mt-3" role="alert">
+                    <strong>注意：</strong> 開發前請確保已安裝 Python 3.8+ 和 pip。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">貢獻指南</h5>
+            </div>
+            <div class="card-body">
+                <h6>如何貢獻</h6>
+                <p>我們歡迎各種形式的貢獻！</p>
+                <ol>
+                    <li><strong>報告 Bug：</strong> 在 GitHub Issues 中詳細描述問題、重現步驟和預期行為</li>
+                    <li><strong>功能建議：</strong> 在 GitHub Discussions 發起討論</li>
+                    <li><strong>提交程式碼：</strong> Fork 專案 → 建立分支 → 提交 Pull Request</li>
+                    <li><strong>改善文件：</strong> 修正錯字、補充說明、翻譯</li>
+                </ol>
+
+                <h6 class="mt-4">開發規範</h6>
+                <ul>
+                    <li>遵循 PEP 8 編碼風格</li>
+                    <li>為新功能撰寫測試</li>
+                    <li>更新相關文件</li>
+                    <li>提交訊息使用清晰的英文描述</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h5>許可證</h5>
+                <p class="mb-0">本專案採用 <strong>MIT License</strong> 開源授權。詳見 <a href="https://github.com/cosbi-lab/wgla/blob/main/LICENSE" target="_blank">LICENSE</a> 文件。</p>
+                <hr>
+                <p class="text-muted small mb-0">© 2026 COSBI Lab, National Central University. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

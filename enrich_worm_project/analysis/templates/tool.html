@@ -1,0 +1,712 @@
+{% extends "base.html" %}
+
+{% block title %}工具 - WGLA Worm Gene List Analyzer{% endblock %}
+
+{% block extra_css %}
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
+    <!-- jQuery (DataTables 需要它) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <!-- DataTables JS -->
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Worm Gene List Analyzer - 基因富集分析</h2>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label">Paste Gene IDs:</label>
+        <textarea name="gene_list" id="geneListInput" class="form-control" rows="5" placeholder="gene ID (eg: YOR378W, YDR038C ...)">{{ request.POST.gene_list }}</textarea>
+        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="loadExampleGenes()">Load Example</button>
+    </div>
+    <button type="submit" class="btn btn-primary">Analyze</button>
+</form>
+
+<hr>
+
+{% if result_json %}
+<div class="control-panel">
+    <div class="row align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Method:</label>
+            <select id="methodSelect" class="form-select">
+                <option value="fdr" selected>FDR (Benjamini-Hochberg)</option>
+                <option value="bon">Bonferroni</option>
+                <option value="raw">None (Raw P-value)</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Cutoff:</label>
+            <select id="cutoffSelect" class="form-select">
+                <option value="0.01" selected>0.01</option>
+                <option value="0.05">0.05</option>
+                <option value="0.1">0.1</option>
+            </select>
+        </div>
+        <div class="col-md-4 text-end">
+            <span class="text-muted">Analysis based on {{ input_count }} genes</span>
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="enrich-tab" data-bs-toggle="tab" data-bs-target="#enrich" type="button">Enrichment</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="deplete-tab" data-bs-toggle="tab" data-bs-target="#deplete" type="button">Depletion</button>
+    </li>
+</ul>
+
+<div class="tab-content table-container">
+    <!-- Enrichment Table -->
+    <div class="tab-pane fade show active" id="enrich">
+        <h4>Enrichment Results</h4>
+        <table id="enrichTable" class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Domain ID</th>
+                    <th>Expected Ratio</th>
+                    <th>Observed Ratio</th>
+                    <th>Log2 Fold Change</th>
+                    <th id="enrich-p-header">P-value (FDR)</th>
+                </tr>
+            </thead>
+            <tbody id="enrichBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Depletion Table -->
+    <div class="tab-pane fade" id="deplete">
+        <h4>Depletion Results</h4>
+        <table id="depleteTable" class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Domain ID</th>
+                    <th>Expected Ratio</th>
+                    <th>Observed Ratio</th>
+                    <th>Log2 Fold Change</th>
+                    <th id="deplete-p-header">P-value (FDR)</th>
+                </tr>
+            </thead>
+            <tbody id="depleteBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if result_json %}
+<script>
+    const allData = {{ result_json|safe }};
+    const methodSelect = document.getElementById('methodSelect');
+    const cutoffSelect = document.getElementById('cutoffSelect');
+    const enrichBody = document.getElementById('enrichBody');
+    const depleteBody = document.getElementById('depleteBody');
+
+    let enrichTable = null;
+    let depleteTable = null;
+
+    function updateTables() {
+        if (enrichTable) {
+            enrichTable.destroy();
+            enrichTable = null;
+        }
+        if (depleteTable) {
+            depleteTable.destroy();
+            depleteTable = null;
+        }
+
+        const method = methodSelect.value;
+        const cutoff = parseFloat(cutoffSelect.value);
+
+        let methodLabel = method === 'raw' ? 'Raw P-value' : (method === 'fdr' ? 'FDR' : 'Bonferroni');
+        document.getElementById('enrich-p-header').innerText = `P-value (${methodLabel})`;
+        document.getElementById('deplete-p-header').innerText = `P-value (${methodLabel})`;
+
+        enrichBody.innerHTML = '';
+        depleteBody.innerHTML = '';
+
+        allData.forEach(row => {
+            let p_enrich, p_deplete;
+            if (method === 'raw') {
+                p_enrich = row.p_enrich_raw;
+                p_deplete = row.p_deplete_raw;
+            } else if (method === 'fdr') {
+                p_enrich = row.p_enrich_fdr;
+                p_deplete = row.p_deplete_fdr;
+            } else {
+                p_enrich = row.p_enrich_bon;
+                p_deplete = row.p_deplete_bon;
+            }
+
+            if (p_enrich < cutoff) {
+                enrichBody.innerHTML += `
+                    <tr>
+                        <td>${row.domain}</td>
+                        <td>${row.exp_str}</td>
+                        <td>${row.obs_str}</td>
+                        <td>${row.log2_fold_change}</td>
+                        <td>${p_enrich.toExponential(3)}</td>
+                    </tr>`;
+            }
+
+            if (p_deplete < cutoff) {
+                depleteBody.innerHTML += `
+                    <tr>
+                        <td>${row.domain}</td>
+                        <td>${row.exp_str}</td>
+                        <td>${row.obs_str}</td>
+                        <td>${row.log2_fold_change}</td>
+                        <td>${p_deplete.toExponential(3)}</td>
+                    </tr>`;
+            }
+        });
+
+        $(document).ready(function() {
+            enrichTable = $('#enrichTable').DataTable({
+                "order": [[ 4, "asc" ]],
+                "pageLength": 10,
+                "searching": true,
+                "destroy": true
+            });
+
+            depleteTable = $('#depleteTable').DataTable({
+                "order": [[ 4, "asc" ]], 
+                "pageLength": 10,
+                "searching": true,
+                "destroy": true
+            });
+        });
+    }
+
+    methodSelect.addEventListener('change', updateTables);
+    cutoffSelect.addEventListener('change', updateTables);
+
+    updateTables();
+</script>
+{% endif %}
+
+<script>
+function loadExampleGenes() {
+    const exampleGenes = `YIL171W
+YKR093W
+YJR160C
+YHR096C
+YOL002C
+YNL257C
+YGR014W
+YGL186C
+YCL048W
+YJR040W
+YKL035W
+YOR275C
+YLL051C
+YLR452C
+YKL046C
+YNL087W
+YDR039C
+YER125W
+YEL063C
+YHR048W
+YOR104W
+YPR075C
+YKR059W
+YPL180W
+YDR032C
+YOR353C
+YDR309C
+YJR151C
+YHR005C
+YOL122C
+YMR008C
+YGR023W
+YLR214W
+YAL005C
+YNL291C
+YEL047C
+YPL036W
+YNL093W
+YLR092W
+YOR212W
+YJL138C
+YDL222C
+YGL084C
+YLR342W
+YKL007W
+YJL156C
+YNR002C
+YNL322C
+YHR126C
+YHR114W
+YDR055W
+YMR186W
+YIR038C
+YOR171C
+YLR004C
+YBL091C-A
+YJR059W
+YNL173C
+YOR030W
+YMR212C
+YGL233W
+YOR306C
+YPR192W
+YML072C
+YMR063W
+YCR027C
+YBR068C
+YCR028C
+YMR086W
+YCL048W-A
+YHL007C
+YDR420W
+YDR463W
+YOL019W
+YHR092C
+YGR254W
+YLR130C
+YML125C
+YLL010C
+YJR065C
+YKL209C
+YML116W
+YOL103W
+YGL053W
+YKL196C
+YKR050W
+YBR023C
+YDR373W
+YLR432W
+YKL051W
+YHL040C
+YMR109W
+YJL100W
+YDR536W
+YDL019C
+YFR012W
+YLR206W
+YFL047W
+YMR006C
+YLR081W
+YKR106W
+YAL038W
+YMR246W
+YJL198W
+YCR088W
+YBL099W
+YOL113W
+YKR105C
+YBR295W
+YDR099W
+YCR017C
+YOR129C
+YDR158W
+YOL011W
+YCL073C
+YER145C
+YNL019C
+YGR143W
+YMR031C
+YDR210W
+YNL098C
+YDR276C
+YER060W-A
+YDR261C
+YCL040W
+YLL024C
+YNL209W
+YGR152C
+YGR055W
+YBR008C
+YGR041W
+YKL220C
+YDR522C
+YAL030W
+YGL160W
+YOR301W
+YKL126W
+YBR021W
+YIR006C
+YKL105C
+YML132W
+YDR343C
+YLR332W
+YDR164C
+YLR413W
+YCR098C
+YIL048W
+YHR201C
+YAR066W
+YGL008C
+YGR121C
+YJR066W
+YOL105C
+YDL135C
+YJR058C
+YHR094C
+YPR194C
+YHR006W
+YIL118W
+YGR086C
+YGR224W
+YHR135C
+YAR050W
+YGR198W
+YFL005W
+YHL044W
+YOR273C
+YJR125C
+YDR153C
+YPL274W
+YCR030C
+YBL060W
+YML128C
+YKL135C
+YDR212W
+YJL212C
+YNL006W
+YJL171C
+YBL106C
+YDR011W
+YGR138C
+YNL180C
+YIR019C
+YKL064W
+YGR192C
+YFL054C
+YDR050C
+YEL017C-A
+YMR306W
+YPR201W
+YDR033W
+YCR012W
+YLR034C
+YGR221C
+YJL052W
+YEL065W
+YGL208W
+YCR094W
+YOL086C
+YDL223C
+YGR197C
+YNL293W
+YDR129C
+YBR069C
+YLR241W
+YLR414C
+YDL229W
+YOR381W
+YGL167C
+YMR215W
+YNL033W
+YGR009C
+YGR065C
+YOR153W
+YBR294W
+YJR005W
+YOR049C
+YOL158C
+YML003W
+YCR091W
+YLR138W
+YAR027W
+YGR292W
+YNL047C
+YOR161C
+YOL084W
+YAR031W
+YKR014C
+YLR096W
+YMR068W
+YDR104C
+YOR317W
+YOR348C
+YMR011W
+YNL183C
+YCR004C
+YNL271C
+YPR156C
+YPL056C
+YIR028W
+YNL142W
+YDL247W
+YDL138W
+YJL170C
+YNL192W
+YNL065W
+YPR171W
+YPL176C
+YKL217W
+YPR032W
+YKR100C
+YGR241C
+YHR073W
+YGR031C-A
+YOL130W
+YMR238W
+YOR071C
+YLR046C
+YLR237W
+YML006C
+YOR371C
+YBL105C
+YLR019W
+YMR183C
+YGR212W
+YAR042W
+YLL007C
+YER060W
+YIL034C
+YML087C
+YLL043W
+YLR194C
+YER056C
+YPR165W
+YIL140W
+YMR266W
+YNR048W
+YDR497C
+YBR054W
+YBR078W
+YER123W
+YOR192C
+YPL004C
+YDL137W
+YNR047W
+YLR303W
+YOL132W
+YBL061C
+YLL005C
+YLR025W
+YPR149W
+YJR100C
+YLR310C
+YJL085W
+YPR159W
+YML047C
+YLR343W
+YLL055W
+YLR020C
+YBR264C
+YBR196C
+YOR086C
+YOL009C
+YKL187C
+YDL012C
+YOL020W
+YPR124W
+YBL042C
+YLR229C
+YOR384W
+YDR103W
+YMR279C
+YLR058C
+YLR219W
+YNL243W
+YCL058C
+YOR316C
+YJL145W
+YLR411W
+YBR207W
+YER067W
+YJL129C
+YMR243C
+YDL035C
+YBL007C
+YJR054W
+YGR217W
+YNL279W
+YLR305C
+YFR022W
+YOR188W
+YHL047C
+YJL093C
+YLL061W
+YBR043C
+YOR327C
+YNR049C
+YJL165C
+YJR152W
+YNL323W
+YMR244C-A
+YBR005W
+YER118C
+YMR120C
+YDR090C
+YOR008C
+YGL115W
+YNL194C
+YNR070W
+YAR033W
+YNL084C
+YBR016W
+YDR461W
+YKR055W
+YGL108C
+YOR011W
+YFL014W
+YPL240C
+YBL069W
+YBL075C
+YMR319C
+YDL194W
+YLR047C
+YKR039W
+YCR021C
+YCR010C
+YGL045W
+YLR084C
+YDR459C
+YCR037C
+YBR086C
+YOR328W
+YGR266W
+YMR058W
+YML052W
+YIL033C
+YHR042W
+YDR506C
+YOR322C
+YHR214W
+YAL056W
+YBL085W
+YER091C
+YGL051W
+YLL053C
+YER103W
+YCR024C-A
+YGR191W
+YMR162C
+YGR281W
+YNR060W
+YNL012W
+YJL005W
+YCR075C
+YGR032W
+YGR131W
+YDL185W
+YLR262C
+YHL016C
+YPL158C
+YLL028W
+YGR167W
+YAL014C
+YAL026C
+YER020W
+YLR422W
+YGR026W
+YLR121C
+YHR155W
+YBL029C-A
+YOR018W
+YNL128W
+YGL082W
+YKL094W
+YER143W
+YGR256W
+YDR414C
+YOL078W
+YNL090W
+YIL120W
+YIL043C
+YDL192W
+YDR524C-B
+YDR122W
+YER166W
+YNL275W
+YOR101W
+YER120W
+YDR345C
+YDL161W
+YER008C
+YLR187W
+YPL092W
+YNL294C
+YJR009C
+YFL050C
+YIL009W
+YOR047C
+YLR443W
+YIL088C
+YDR160W
+YIL105C
+YIR039C
+YFL041W
+YPL265W
+YDR208W
+YBL037W
+YLR120C
+YLR299W
+YHR050W
+YER093C
+YNL231C
+YKL129C
+YGR068C
+YBR299W
+YMR032W
+YNL283C
+YIL047C
+YOR390W
+YPL249C
+YPL232W
+YER155C
+YLR373C
+YIL147C
+YMR034C
+YDR144C
+YNL145W
+YBR296C
+YNL154C
+YJL058C
+YGR122W
+YLR353W
+YGR213C
+YKL203C
+YER185W
+YDR040C
+YHR174W
+YPL279C
+YJL158C
+YGL255W
+YGR060W
+YIL121W
+YDR093W
+YMR017W
+YHR186C
+YJR001W
+YDL124W
+YPR055W
+YKL060C
+YLR109W
+YDR348C
+YER177W
+YBR129C
+YDR342C
+YMR192W
+YFL051C
+YFR029W
+YMR251W-A
+YPL058C
+YOL109W
+YDR384C
+YLL052C
+YJR086W
+YCL025C
+YPL204W
+YMR307W
+YHR161C
+YAL022C
+YOL152W
+YML002W
+YLL050C
+YOR378W
+YDR038C`;
+    
+    document.getElementById('geneListInput').value = exampleGenes;
+}
+</script>
+{% endblock %}

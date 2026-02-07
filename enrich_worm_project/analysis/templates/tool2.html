@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}工具 2 - WGLA Worm Gene List Analyzer{% endblock %}
+
+{% block extra_css %}
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
+    <style>
+        .input-section {
+            height: 500px;
+            overflow-y: auto;
+        }
+        .feature-selection {
+            height: 500px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .feature-category {
+            margin-bottom: 20px;
+        }
+        .feature-category h5 {
+            cursor: pointer;
+            user-select: none;
+        }
+        .feature-category h5:hover {
+            color: #0d6efd;
+        }
+        .feature-list {
+            padding-left: 20px;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Worm Gene List Analyzer - 功能選擇分析</h2>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <!-- Step 1 & Step 2: 輸入與功能選擇 -->
+    <div class="row mb-4">
+        <!-- 左側：基因輸入區 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Step 1 - Input Gene List</h5>
+                </div>
+                <div class="card-body input-section">
+                    <label class="form-label">List Name (Optional):</label>
+                    <input type="text" name="list_name" class="form-control mb-3" placeholder="User input list" value="{{ request.POST.list_name }}">
+                    
+                    <label class="form-label">Type Gene List (one gene per line):</label>
+                    <textarea name="gene_list" class="form-control" rows="15" placeholder="輸入線蟲基因 ID (如: WBGene00000001 WBGene00000002 ...)">{{ request.POST.gene_list }}</textarea>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <a href="#" data-bs-toggle="collapse" data-bs-target="#exampleGenes">查看範例基因列表</a>
+                        </small>
+                        <div class="collapse mt-2" id="exampleGenes">
+                            <div class="alert alert-info small">
+                                WBGene00000001<br>
+                                WBGene00000002<br>
+                                WBGene00000003<br>
+                                WBGene00000004<br>
+                                WBGene00000005
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：功能選擇區 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Step 2 - Select Features for Enrichment Analysis</h5>
+                </div>
+                <div class="card-body feature-selection">
+                    <!-- Ontology and Functional Annotation Features -->
+                    <div class="feature-category">
+                        <h5 class="text-primary" data-bs-toggle="collapse" data-bs-target="#ontologyFeatures">
+                            Ontology and Functional Annotation Features
+                        </h5>
+                        <div id="ontologyFeatures" class="collapse show feature-list">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="select_all_ontology" id="selectAllOntology">
+                                <label class="form-check-label fw-bold" for="selectAllOntology">
+                                    Select All
+                                </label>
+                            </div>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                <label class="fw-bold text-info">Gene Ontology (GO)</label>
+                                <div class="form-check ms-3">
+                                    <input class="form-check-input" type="checkbox" name="features" value="go_mf" id="go_mf">
+                                    <label class="form-check-label" for="go_mf">Molecular Function (MF)</label>
+                                </div>
+                                <div class="form-check ms-3">
+                                    <input class="form-check-input" type="checkbox" name="features" value="go_bp" id="go_bp">
+                                    <label class="form-check-label" for="go_bp">Biological Process (BP)</label>
+                                </div>
+                                <div class="form-check ms-3">
+                                    <input class="form-check-input" type="checkbox" name="features" value="go_cc" id="go_cc">
+                                    <label class="form-check-label" for="go_cc">Cellular Component (CC)</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="features" value="disease_ontology" id="disease_ontology">
+                                    <label class="form-check-label fw-bold text-info" for="disease_ontology">Disease Ontology (DO)</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="features" value="mutant_phenotype" id="mutant_phenotype">
+                                    <label class="form-check-label fw-bold text-info" for="mutant_phenotype">Mutant Phenotype</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="features" value="biochemical_pathway" id="biochemical_pathway">
+                                    <label class="form-check-label fw-bold text-info" for="biochemical_pathway">Biochemical Pathway</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="features" value="protein_domain" id="protein_domain" checked>
+                                    <label class="form-check-label fw-bold text-info" for="protein_domain">Protein Domain</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gene/Protein Property Features -->
+                    <div class="feature-category">
+                        <h5 class="text-warning" data-bs-toggle="collapse" data-bs-target="#propertyFeatures">
+                            Gene/Protein Property Features
+                        </h5>
+                        <div id="propertyFeatures" class="collapse feature-list">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="features" value="protein_interactions" id="protein_interactions">
+                                <label class="form-check-label fw-bold" for="protein_interactions">Protein Interaction Targets</label>
+                            </div>
+                            <div class="form-check ms-3">
+                                <input class="form-check-input" type="checkbox" name="features" value="physical_interactor" id="physical_interactor">
+                                <label class="form-check-label" for="physical_interactor">Physical Interactor</label>
+                            </div>
+                            <div class="form-check ms-3">
+                                <input class="form-check-input" type="checkbox" name="features" value="genetic_interactor" id="genetic_interactor">
+                                <label class="form-check-label" for="genetic_interactor">Genetic Interactor</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- High-throughput Exp. Features (暫未實作) -->
+                    <div class="feature-category">
+                        <h5 class="text-secondary" data-bs-toggle="collapse" data-bs-target="#highthroughputFeatures">
+                            High-throughput Exp. Features (Coming Soon)
+                        </h5>
+                        <div id="highthroughputFeatures" class="collapse feature-list">
+                            <p class="text-muted small">此功能將在未來版本中實作</p>
+                        </div>
+                    </div>
+
+                    <!-- Functional Gene Group Features (暫未實作) -->
+                    <div class="feature-category">
+                        <h5 class="text-secondary" data-bs-toggle="collapse" data-bs-target="#functionalGroupFeatures">
+                            Functional Gene Group Features (Coming Soon)
+                        </h5>
+                        <div id="functionalGroupFeatures" class="collapse feature-list">
+                            <p class="text-muted small">此功能將在未來版本中實作</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mb-4">
+        <button type="submit" class="btn btn-primary btn-lg px-5">
+            Analyze
+        </button>
+        <button type="reset" class="btn btn-outline-secondary btn-lg px-5 ms-3">
+            Clear All
+        </button>
+    </div>
+</form>
+
+<hr>
+
+<!-- 結果輸出區 -->
+{% if result_json %}
+<div class="control-panel">
+    <div class="row align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Correction Method:</label>
+            <select id="methodSelect" class="form-select">
+                <option value="raw">None (Raw P-value)</option>
+                <option value="fdr" selected>FDR (Benjamini-Hochberg)</option>
+                <option value="bon">Bonferroni</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">P-value Cutoff:</label>
+            <select id="cutoffSelect" class="form-select">
+                <option value="0.01" selected>0.01</option>
+                <option value="0.05">0.05</option>
+                <option value="0.1">0.1</option>
+            </select>
+        </div>
+        <div class="col-md-4 text-end">
+            <span class="text-muted">Analysis based on {{ input_count }} genes</span>
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="enrich-tab" data-bs-toggle="tab" data-bs-target="#enrich" type="button">Enrichment</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="deplete-tab" data-bs-toggle="tab" data-bs-target="#deplete" type="button">Depletion</button>
+    </li>
+</ul>
+
+<div class="tab-content table-container">
+    <!-- Enrichment Table -->
+    <div class="tab-pane fade show active" id="enrich">
+        <h4>Enrichment Results</h4>
+        <table id="enrichTable" class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Domain ID</th>
+                    <th>Expected Ratio</th>
+                    <th>Observed Ratio</th>
+                    <th>Log2 Fold Change</th>
+                    <th id="enrich-p-header">P-value (FDR)</th>
+                </tr>
+            </thead>
+            <tbody id="enrichBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Depletion Table -->
+    <div class="tab-pane fade" id="deplete">
+        <h4>Depletion Results</h4>
+        <table id="depleteTable" class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Domain ID</th>
+                    <th>Expected Ratio</th>
+                    <th>Observed Ratio</th>
+                    <th>Log2 Fold Change</th>
+                    <th id="deplete-p-header">P-value (FDR)</th>
+                </tr>
+            </thead>
+            <tbody id="depleteBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+    <!-- jQuery (DataTables 需要它) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <!-- DataTables JS -->
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+
+<script>
+    // Select All Ontology Features
+    document.getElementById('selectAllOntology').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('#ontologyFeatures input[type="checkbox"]:not(#selectAllOntology)');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+</script>
+
+{% if result_json %}
+<script>
+    const allData = {{ result_json|safe }};
+    const methodSelect = document.getElementById('methodSelect');
+    const cutoffSelect = document.getElementById('cutoffSelect');
+    const enrichBody = document.getElementById('enrichBody');
+    const depleteBody = document.getElementById('depleteBody');
+
+    let enrichTable = null;
+    let depleteTable = null;
+
+    function updateTables() {
+        if (enrichTable) {
+            enrichTable.destroy();
+            enrichTable = null;
+        }
+        if (depleteTable) {
+            depleteTable.destroy();
+            depleteTable = null;
+        }
+
+        const method = methodSelect.value;
+        const cutoff = parseFloat(cutoffSelect.value);
+
+        let methodLabel = method === 'raw' ? 'Raw P-value' : (method === 'fdr' ? 'FDR' : 'Bonferroni');
+        document.getElementById('enrich-p-header').innerText = `P-value (${methodLabel})`;
+        document.getElementById('deplete-p-header').innerText = `P-value (${methodLabel})`;
+
+        enrichBody.innerHTML = '';
+        depleteBody.innerHTML = '';
+
+        allData.forEach(row => {
+            let p_enrich, p_deplete;
+            if (method === 'raw') {
+                p_enrich = row.p_enrich_raw;
+                p_deplete = row.p_deplete_raw;
+            } else if (method === 'fdr') {
+                p_enrich = row.p_enrich_fdr;
+                p_deplete = row.p_deplete_fdr;
+            } else {
+                p_enrich = row.p_enrich_bon;
+                p_deplete = row.p_deplete_bon;
+            }
+
+            if (p_enrich < cutoff) {
+                enrichBody.innerHTML += `
+                    <tr>
+                        <td>${row.domain}</td>
+                        <td>${row.exp_str}</td>
+                        <td>${row.obs_str}</td>
+                        <td>${row.log2_fold_change}</td>
+                        <td>${p_enrich.toExponential(3)}</td>
+                    </tr>`;
+            }
+
+            if (p_deplete < cutoff) {
+                depleteBody.innerHTML += `
+                    <tr>
+                        <td>${row.domain}</td>
+                        <td>${row.exp_str}</td>
+                        <td>${row.obs_str}</td>
+                        <td>${row.log2_fold_change}</td>
+                        <td>${p_deplete.toExponential(3)}</td>
+                    </tr>`;
+            }
+        });
+
+        $(document).ready(function() {
+            enrichTable = $('#enrichTable').DataTable({
+                "order": [[ 4, "asc" ]],
+                "pageLength": 10,
+                "searching": true,
+                "destroy": true
+            });
+
+            depleteTable = $('#depleteTable').DataTable({
+                "order": [[ 4, "asc" ]], 
+                "pageLength": 10,
+                "searching": true,
+                "destroy": true
+            });
+        });
+    }
+
+    methodSelect.addEventListener('change', updateTables);
+    cutoffSelect.addEventListener('change', updateTables);
+
+    updateTables();
+</script>
+{% endif %}
+{% endblock %}

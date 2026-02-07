@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}首頁 - WGLA Worm Gene List Analyzer{% endblock %}
+
+{% block content %}
+<div class="text-center mb-5">
+    <h1 class="display-4 fw-bold">WGLA: Worm Gene List Analyzer</h1>
+    <p class="lead text-muted">一個專為線蟲（<i>Caenorhabditis elegans</i>）設計的基因清單分析工具</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h4 class="card-title mb-3">工具簡介</h4>
+                <p class="card-text">
+                    WGLA 是一個專業的生物資訊分析工具，用於<strong>鑑定線蟲基因清單中顯著富集（Enriched）或缺乏（Depleted）的生物特徵</strong>。
+                </p>
+                <p class="card-text">
+                    透過輸入一群線蟲基因，本工具能夠進行統計分析，找出在您的基因集中顯著出現或明顯缺失的生物特徵，例如：
+                </p>
+                <ul class="list-unstyled ms-3">
+                    <li>🧬 <strong>Protein Domains</strong> - 蛋白質結構域</li>
+                    <li>📊 <strong>GO Terms</strong> - 基因本體論註釋</li>
+                    <li>🔬 <strong>Functional Annotations</strong> - 功能性註釋</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">主要功能</h5>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item border-0"><strong>Enrichment Analysis</strong> - 富集分析</li>
+                    <li class="list-group-item border-0"><strong>Depletion Analysis</strong> - 缺乏分析</li>
+                    <li class="list-group-item border-0">多種統計校正方法（FDR, Bonferroni）</li>
+                    <li class="list-group-item border-0">彈性 P-value 閾值設定</li>
+                    <li class="list-group-item border-0">視覺化結果展示（Volcano Plot, Bubble Plot）</li>
+                    <li class="list-group-item border-0">支援多種生物特徵資料庫</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5>快速開始</h5>
+                <ol class="mb-3">
+                    <li>準備您的線蟲基因清單（WormBase Gene IDs）</li>
+                    <li>前往 <strong>Tool</strong> 頁面</li>
+                    <li>貼上基因 ID</li>
+                    <li>選擇要分析的生物特徵</li>
+                    <li>點擊 <strong>Analyze</strong> 開始分析</li>
+                </ol>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'tool' %}" class="btn btn-primary btn-lg">
+                        開始分析 →
+                    </a>
+                    <a href="{% url 'help' %}" class="btn btn-outline-secondary">
+                        查看使用說明
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="alert alert-info" role="alert">
+            <h5 class="alert-heading">使用提示</h5>
+            <p class="mb-0">
+                不確定如何開始？查看 <a href="{% url 'help' %}" class="alert-link">Help</a> 頁面了解詳細使用說明，
+                或參考我們提供的範例基因清單進行測試。
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
