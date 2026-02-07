@@ -20,7 +20,7 @@ if sys.stdout.encoding != 'utf-8':
 # Constants
 TOTAL_GENES = 49164
 ASPECTS = {
-    'C': ('GO_Term_live_only_aspect_C_CellularComponent_live_only.csv', 'Cellular Component'),
+    'C': ('C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW2_參考答案\GO_Term_domain_type_C_live_only.csv', 'Cellular Component'),
     'F': ('GO_Term_live_only_aspect_F_MolecularFunction_live_only.csv', 'Molecular Function'),
     'P': ('GO_Term_live_only_aspect_P_BiologicalProcess_live_only.csv', 'Biological Process'),
 }
@@ -92,24 +92,33 @@ def load_go_feature_table(feature_file):
 def calculate_enrichment(input_genes, go_genes):
     """Calculate GO enrichment analysis."""
     results = []
-    input_count = len(input_genes)
+    input_count = len(input_genes) #A = 輸入基因數
     
     for go_id, bg_genes in go_genes.items():
-        # 2x2 contingency table
-        bg_with_go = len(bg_genes)
-        bg_without_go = TOTAL_GENES - bg_with_go
+        # 2x2 contingency table construction
+        input_count = len(input_genes)
         
+        # A: genes in input AND have GO term
         input_with_go = len(input_genes & bg_genes)
+        # B - A: genes in input but WITHOUT GO term
         input_without_go = input_count - input_with_go
         
-        # Fisher's Exact Test
+        # C - A: genes in background WITHOUT input that have GO term
+        bg_with_go = len(bg_genes) - input_with_go
+        # D - B - (C - A): genes in background WITHOUT input and WITHOUT GO term
+        bg_without_go = TOTAL_GENES - input_count - bg_with_go
+        
+        # Fisher's Exact Test (one-tailed for enrichment)
         oddsratio, pvalue = fisher_exact(
             [[input_with_go, input_without_go],
-             [bg_with_go, bg_without_go]]
+             [bg_with_go, bg_without_go]],
+            alternative='greater'
         )
         
         # Calculate ratios and fold change
-        expected_ratio = bg_with_go / TOTAL_GENES
+        # Expected ratio based on total background with GO term
+        feature_count = len(bg_genes)
+        expected_ratio = feature_count / TOTAL_GENES
         observed_ratio = input_with_go / input_count if input_count > 0 else 0
         fold_change = observed_ratio / expected_ratio if expected_ratio > 0 else 0
         
@@ -122,7 +131,7 @@ def calculate_enrichment(input_genes, go_genes):
         results.append({
             'go_id': go_id,
             'expected_ratio': expected_ratio,
-            'expected_ratio_str': f"{bg_with_go}/{TOTAL_GENES} ({expected_ratio*100:.4f}%)",
+            'expected_ratio_str': f"{feature_count}/{TOTAL_GENES} ({expected_ratio*100:.4f}%)",
             'observed_ratio': observed_ratio,
             'observed_ratio_str': f"{input_with_go}/{input_count} ({observed_ratio*100:.4f}%)" if input_count > 0 else f"0/{input_count} (0.0%)",
             'fold_change': fold_change,
