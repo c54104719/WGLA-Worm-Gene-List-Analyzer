@@ -1,3 +1,4 @@
+# f2_generate_GO_feature_table_filtered.py
 import csv
 import os
 
