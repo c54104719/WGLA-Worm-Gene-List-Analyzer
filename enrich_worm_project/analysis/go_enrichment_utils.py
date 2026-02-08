@@ -8,7 +8,7 @@ import scipy.stats
 from statsmodels.stats.multitest import multipletests
 
 
-def perform_go_fisher_exact_test(input_genes, feature_table):
+def perform_go_fisher_exact_test(input_genes, feature_table, total_population=None):
     """
     對 GO 特徵表進行 Fisher's Exact Test
     
@@ -26,10 +26,13 @@ def perform_go_fisher_exact_test(input_genes, feature_table):
     B = len(input_genes)  # 輸入基因數
     
     # 計算背景基因總數
-    all_genes = set()
-    for genes in feature_table.values():
-        all_genes.update(genes)
-    D = len(all_genes)  # 背景基因總數
+    if total_population is None:
+        all_genes = set()
+        for genes in feature_table.values():
+            all_genes.update(genes)
+        D = len(all_genes)
+    else:
+        D = total_population
     
     # 逐個 GO term 進行計算
     for go_id, go_genes in feature_table.items():
@@ -44,8 +47,12 @@ def perform_go_fisher_exact_test(input_genes, feature_table):
         # 計算 log2(FC)
         log2_fc = math.log2(fold_change) if fold_change > 0 else -1000.0
         
-        # Fisher's Exact Test
-        cont_table = [[A, C-A], [B-A, D-C-B+A]]
+        # Fisher's Exact Test (use f3-style 2x2 table)
+        input_without_go = B - A
+        bg_with_go = C - A
+        bg_without_go = D - B - bg_with_go
+
+        cont_table = [[A, input_without_go], [bg_with_go, bg_without_go]]
         
         # Enrichment (基因過度表示)
         _, p_enrich = scipy.stats.fisher_exact(cont_table, alternative='greater')
@@ -54,8 +61,8 @@ def perform_go_fisher_exact_test(input_genes, feature_table):
         _, p_deplete = scipy.stats.fisher_exact(cont_table, alternative='less')
         
         # 格式化 ratio 字串
-        exp_str = f"{C}/{D} ({expected_ratio:.3%})"
-        obs_str = f"{A}/{B} ({observed_ratio:.1%})"
+        exp_str = f"{C}/{D} ({expected_ratio:.4%})"
+        obs_str = f"{A}/{B} ({observed_ratio:.2%})"
         
         results.append({
             'go_id': go_id,

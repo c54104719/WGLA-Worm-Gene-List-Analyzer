@@ -9,8 +9,9 @@ import csv
 # 導入 GO 富集分析工具函式
 from .go_enrichment_utils import perform_go_fisher_exact_test, apply_multiple_test_correction, calculate_log10_p
 
-# 設定全域變數 (酵母菌基因總數)
+# 設定全域變數
 TOTAL_GENES = 6705
+GO_TOTAL_GENES = 49164
 
 def home_view(request):
     """首頁視圖"""
@@ -167,7 +168,11 @@ def tool2_view(request):
                         continue
                     
                     # 執行 Fisher's Exact Test
-                    results, B, D = perform_go_fisher_exact_test(input_genes, feature_table)
+                    results, B, D = perform_go_fisher_exact_test(
+                        input_genes,
+                        feature_table,
+                        total_population=GO_TOTAL_GENES
+                    )
                     
                     # 多重檢定校正
                     results = apply_multiple_test_correction(results)

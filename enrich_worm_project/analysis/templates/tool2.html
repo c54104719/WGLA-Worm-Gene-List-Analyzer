@@ -34,7 +34,7 @@
 {% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Worm Gene List Analyzer - 功能選擇分析</h2>
+<h2 class="mb-4">Worm Gene List Analyzer</h2>
 
 <form method="post">
     {% csrf_token %}
@@ -55,18 +55,9 @@
                     <textarea name="gene_list" class="form-control" rows="15" placeholder="輸入線蟲基因 ID (如: WBGene00000001 WBGene00000002 ...)">{{ request.POST.gene_list }}</textarea>
                     
                     <div class="mt-3">
-                        <small class="text-muted">
-                            <a href="#" data-bs-toggle="collapse" data-bs-target="#exampleGenes">查看範例基因列表</a>
-                        </small>
-                        <div class="collapse mt-2" id="exampleGenes">
-                            <div class="alert alert-info small">
-                                WBGene00000001<br>
-                                WBGene00000002<br>
-                                WBGene00000003<br>
-                                WBGene00000004<br>
-                                WBGene00000005
-                            </div>
-                        </div>
+                        <button type="button" class="btn btn-sm btn-info" id="loadExampleBtn">
+                            Load Example
+                        </button>
                     </div>
                 </div>
             </div>
@@ -132,7 +123,7 @@
 
                             <div class="mb-3">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="features" value="protein_domain" id="protein_domain" checked>
+                                    <input class="form-check-input" type="checkbox" name="features" value="protein_domain" id="protein_domain">
                                     <label class="form-check-label fw-bold text-info" for="protein_domain">Protein Domain</label>
                                 </div>
                             </div>
@@ -281,11 +272,50 @@
         const checkboxes = document.querySelectorAll('#ontologyFeatures input[type="checkbox"]:not(#selectAllOntology)');
         checkboxes.forEach(cb => cb.checked = this.checked);
     });
+
+    // Load Example Genes
+    const exampleGenes = `WBGene00002324
+WBGene00003164
+WBGene00004343
+WBGene00007012
+WBGene00007013
+WBGene00007017
+WBGene00007018
+WBGene00007026
+WBGene00020951
+WBGene00001078
+WBGene00007189
+WBGene00010720
+WBGene00017983
+WBGene00018175
+WBGene00020375
+WBGene00020820
+WBGene00003582
+WBGene00004879
+WBGene00004880
+WBGene00004881
+WBGene00004882
+WBGene00004883
+WBGene00004884
+WBGene00004885
+WBGene00010551
+WBGene00012343
+WBGene00012904
+WBGene00013188
+WBGene00015943
+WBGene00018156
+WBGene00021365
+WBGene00021929`;
+
+    document.getElementById('loadExampleBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelector('textarea[name="gene_list"]').value = exampleGenes;
+    });
 </script>
 
 {% if result_json %}
 <script>
-    const allData = {{ result_json|safe }};
+    const resultsData = {{ result_json|safe }};
     const methodSelect = document.getElementById('methodSelect');
     const cutoffSelect = document.getElementById('cutoffSelect');
     const enrichBody = document.getElementById('enrichBody');
@@ -314,7 +344,15 @@
         enrichBody.innerHTML = '';
         depleteBody.innerHTML = '';
 
-        allData.forEach(row => {
+        // 合併所有分析類型的結果
+        let allResults = [];
+        for (const [key, value] of Object.entries(resultsData)) {
+            if (value.results && Array.isArray(value.results)) {
+                allResults = allResults.concat(value.results);
+            }
+        }
+
+        allResults.forEach(row => {
             let p_enrich, p_deplete;
             if (method === 'raw') {
                 p_enrich = row.p_enrich_raw;
