@@ -20,9 +20,9 @@ if sys.stdout.encoding != 'utf-8':
 # Constants
 TOTAL_GENES = 49164
 ASPECTS = {
-    'C': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW2_參考答案\GO_Term_domain_type_C_live_only.csv', 'Cellular Component'),
-    'F': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW2_參考答案\GO_Term_domain_type_F_live_only.csv', 'Molecular Function'),
-    'P': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW2_參考答案\GO_Term_domain_type_P_live_only.csv', 'Biological Process'),
+    'C': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\enrich_worm_project\GO_Term_domain_type_C_live_only.csv', 'Cellular Component'),
+    'F': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\enrich_worm_project\GO_Term_domain_type_F_live_only.csv', 'Molecular Function'),
+    'P': (r'C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\enrich_worm_project\GO_Term_domain_type_P_live_only.csv', 'Biological Process'),
 }
 
 # Result header
@@ -90,9 +90,9 @@ def load_go_feature_table(feature_file):
 
 
 def calculate_enrichment(input_genes, go_genes):
-    """Calculate GO enrichment analysis."""
+    """Calculate GO enrichment and depletion analysis."""
     results = []
-    input_count = len(input_genes) #A = 輸入基因數
+    input_count = len(input_genes)
     
     for go_id, bg_genes in go_genes.items():
         # 2x2 contingency table construction
@@ -108,11 +108,19 @@ def calculate_enrichment(input_genes, go_genes):
         # D - B - (C - A): genes in background WITHOUT input and WITHOUT GO term
         bg_without_go = TOTAL_GENES - input_count - bg_with_go
         
-        # Fisher's Exact Test (one-tailed for enrichment)
-        oddsratio, pvalue = fisher_exact(
+        # Fisher's Exact Test (both enrichment and depletion)
+        # Enrichment (one-tailed, greater)
+        _, pvalue_enrich = fisher_exact(
             [[input_with_go, input_without_go],
              [bg_with_go, bg_without_go]],
             alternative='greater'
+        )
+        
+        # Depletion (one-tailed, less)
+        _, pvalue_deplete = fisher_exact(
+            [[input_with_go, input_without_go],
+             [bg_with_go, bg_without_go]],
+            alternative='less'
         )
         
         # Calculate ratios and fold change
@@ -126,7 +134,8 @@ def calculate_enrichment(input_genes, go_genes):
         log2_fc = math.log2(fold_change) if fold_change > 0 else -1000.0
         
         # -log10 transformation
-        log10_p = -math.log10(pvalue) if pvalue > 0 else 0
+        log10_p_enrich = -math.log10(pvalue_enrich) if pvalue_enrich > 0 else 0
+        log10_p_deplete = -math.log10(pvalue_deplete) if pvalue_deplete > 0 else 0
         
         results.append({
             'go_id': go_id,
@@ -135,53 +144,90 @@ def calculate_enrichment(input_genes, go_genes):
             'observed_ratio': observed_ratio,
             'observed_ratio_str': f"{input_with_go}/{input_count} ({observed_ratio*100:.4f}%)" if input_count > 0 else f"0/{input_count} (0.0%)",
             'fold_change': fold_change,
-            'pvalue': pvalue,
+            'pvalue_enrich': pvalue_enrich,
+            'pvalue_deplete': pvalue_deplete,
             'log2_fc': log2_fc,
-            'log10_p': log10_p,
+            'log10_p_enrich': log10_p_enrich,
+            'log10_p_deplete': log10_p_deplete,
         })
+    
+    return results
     
     return results
 
 
 def apply_correction(results):
-    """Apply FDR and Bonferroni multiple test correction."""
-    pvalues = [r['pvalue'] for r in results]
+    """Apply FDR and Bonferroni multiple test correction for both enrichment and depletion."""
+    pvalues_enrich = [r['pvalue_enrich'] for r in results]
+    pvalues_deplete = [r['pvalue_deplete'] for r in results]
     
     # FDR correction
-    reject_fdr, pvals_fdr, _, _ = multipletests(pvalues, method='fdr_bh')
+    reject_fdr_enrich, pvals_fdr_enrich, _, _ = multipletests(pvalues_enrich, method='fdr_bh')
+    reject_fdr_deplete, pvals_fdr_deplete, _, _ = multipletests(pvalues_deplete, method='fdr_bh')
     
     # Bonferroni correction
-    reject_bonf, pvals_bonf, _, _ = multipletests(pvalues, method='bonferroni')
+    reject_bonf_enrich, pvals_bonf_enrich, _, _ = multipletests(pvalues_enrich, method='bonferroni')
+    reject_bonf_deplete, pvals_bonf_deplete, _, _ = multipletests(pvalues_deplete, method='bonferroni')
     
+    # Add corrected p-values to results
     for i, result in enumerate(results):
-        result['pvalue_fdr'] = pvals_fdr[i]
-        result['pvalue_bonf'] = pvals_bonf[i]
-        result['log10_p_fdr'] = -math.log10(pvals_fdr[i]) if pvals_fdr[i] > 0 else 0
-        result['log10_p_bonf'] = -math.log10(pvals_bonf[i]) if pvals_bonf[i] > 0 else 0
+        # Enrichment corrections
+        result['pvalue_enrich_fdr'] = pvals_fdr_enrich[i]
+        result['pvalue_enrich_bonf'] = pvals_bonf_enrich[i]
+        result['log10_p_enrich_fdr'] = -math.log10(pvals_fdr_enrich[i]) if pvals_fdr_enrich[i] > 0 else 0
+        result['log10_p_enrich_bonf'] = -math.log10(pvals_bonf_enrich[i]) if pvals_bonf_enrich[i] > 0 else 0
+        
+        # Depletion corrections
+        result['pvalue_deplete_fdr'] = pvals_fdr_deplete[i]
+        result['pvalue_deplete_bonf'] = pvals_bonf_deplete[i]
+        result['log10_p_deplete_fdr'] = -math.log10(pvals_fdr_deplete[i]) if pvals_fdr_deplete[i] > 0 else 0
+        result['log10_p_deplete_bonf'] = -math.log10(pvals_bonf_deplete[i]) if pvals_bonf_deplete[i] > 0 else 0
     
     return results
 
 
-def save_results(results, output_file, aspect_name):
-    """Save results to CSV file."""
+def save_results(results, output_file, aspect_name, result_type='enrichment'):
+    """Save results to CSV file.
+    
+    Args:
+        results: Analysis results
+        output_file: Output file path
+        aspect_name: GO aspect name (for logging)
+        result_type: 'enrichment' or 'depletion'
+    """
     try:
         with open(output_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(RESULT_HEADER)
             
             for r in results:
+                if result_type == 'enrichment':
+                    pvalue = r['pvalue_enrich']
+                    pvalue_fdr = r['pvalue_enrich_fdr']
+                    pvalue_bonf = r['pvalue_enrich_bonf']
+                    log10_p = r['log10_p_enrich']
+                    log10_p_fdr = r['log10_p_enrich_fdr']
+                    log10_p_bonf = r['log10_p_enrich_bonf']
+                else:  # depletion
+                    pvalue = r['pvalue_deplete']
+                    pvalue_fdr = r['pvalue_deplete_fdr']
+                    pvalue_bonf = r['pvalue_deplete_bonf']
+                    log10_p = r['log10_p_deplete']
+                    log10_p_fdr = r['log10_p_deplete_fdr']
+                    log10_p_bonf = r['log10_p_deplete_bonf']
+                
                 writer.writerow([
                     r['go_id'],
                     r['expected_ratio_str'],
                     r['observed_ratio_str'],
-                    f"{r['fold_change']:.14f}",  # 增加精度到14位
-                    f"{r['pvalue']:.16e}",
-                    f"{r['pvalue_fdr']:.16e}",
-                    f"{r['pvalue_bonf']:.16e}",
+                    f"{r['fold_change']:.14f}",
+                    f"{pvalue:.16e}",
+                    f"{pvalue_fdr:.16e}",
+                    f"{pvalue_bonf:.16e}",
                     f"{r['log2_fc']:.16e}",
-                    f"{r['log10_p']:.16e}",
-                    f"{r['log10_p_fdr']:.16e}",
-                    f"{r['log10_p_bonf']:.16e}",
+                    f"{log10_p:.16e}",
+                    f"{log10_p_fdr:.16e}",
+                    f"{log10_p_bonf:.16e}",
                 ])
         
         print(f"[OK] Results saved: {output_file} ({len(results)} rows)")
@@ -245,20 +291,26 @@ def main():
         results = apply_correction(results)
         print(f"[OK] Applied multiple test correction (FDR, Bonferroni)")
         
-        # Save results
-        output_file = f"GO_Term_enrichment_result_{aspect}.csv"
-        if save_results(results, output_file, aspect_name):
+        # Save enrichment results
+        output_file_enrich = f"GO_Term_enrichment_result_{aspect}.csv"
+        if save_results(results, output_file_enrich, aspect_name, result_type='enrichment'):
+            success_count += 1
+        
+        # Save depletion results
+        output_file_deplete = f"GO_Term_depletion_result_{aspect}.csv"
+        if save_results(results, output_file_deplete, aspect_name, result_type='depletion'):
             success_count += 1
         
         print()
     
     print("=" * 60)
-    if success_count == len(selected_aspects):
+    expected_files = len(selected_aspects) * 2  # 2 files per aspect (enrichment + depletion)
+    if success_count == expected_files:
         print(f"[OK] Analysis completed! Generated {success_count} result files")
         print("=" * 60)
         sys.exit(0)
     else:
-        print(f"[WARN] Analysis partially completed ({success_count}/{len(selected_aspects)} succeeded)")
+        print(f"[WARN] Analysis partially completed ({success_count}/{expected_files} succeeded)")
         print("=" * 60)
         sys.exit(1)
 
