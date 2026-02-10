@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}首頁 - WGLA Worm Gene List Analyzer{% endblock %}
+{% block title %}Home - WGLA Worm Gene List Analyzer{% endblock %}
 
 {% block content %}
 <div class="text-center mb-5">
     <h1 class="display-4 fw-bold">WGLA: Worm Gene List Analyzer</h1>
-    <p class="lead text-muted">一個專為線蟲（<i>Caenorhabditis elegans</i>）設計的基因清單分析工具</p>
+    <p class="lead text-muted">A professional gene list analysis tool designed for nematode (<i>Caenorhabditis elegans</i>)</p>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-8 mx-auto">
         <div class="card shadow-sm">
             <div class="card-body p-4">
-                <h4 class="card-title mb-3">工具簡介</h4>
+                <h4 class="card-title mb-3">About This Tool</h4>
                 <p class="card-text">
-                    WGLA 是一個專業的生物資訊分析工具，用於<strong>鑑定線蟲基因清單中顯著富集（Enriched）或缺乏（Depleted）的生物特徵</strong>。
+                    WGLA is a professional bioinformatics analysis tool for <strong>identifying significantly enriched or depleted biological features in nematode gene lists</strong>.
                 </p>
                 <p class="card-text">
-                    透過輸入一群線蟲基因，本工具能夠進行統計分析，找出在您的基因集中顯著出現或明顯缺失的生物特徵，例如：
+                    By inputting a set of nematode genes, this tool performs statistical analysis to discover biological features that are significantly present or clearly absent in your gene set, such as:
                 </p>
                 <ul class="list-unstyled ms-3">
-                    <li>🧬 <strong>Protein Domains</strong> - 蛋白質結構域</li>
-                    <li>📊 <strong>GO Terms</strong> - 基因本體論註釋</li>
-                    <li>🔬 <strong>Functional Annotations</strong> - 功能性註釋</li>
+                    <li>🧬 <strong>Protein Domains</strong></li>
+                    <li>📊 <strong>GO Terms</strong> (Gene Ontology)</li>
+                    <li>🔬 <strong>Functional Annotations</strong></li>
                 </ul>
             </div>
         </div>
@@ -33,14 +33,14 @@
     <div class="col-md-6">
         <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">主要功能</h5>
+                <h5 class="card-title">Key Features</h5>
                 <ul class="list-group list-group-flush">
-                    <li class="list-group-item border-0"><strong>Enrichment Analysis</strong> - 富集分析</li>
-                    <li class="list-group-item border-0"><strong>Depletion Analysis</strong> - 缺乏分析</li>
-                    <li class="list-group-item border-0">多種統計校正方法（FDR, Bonferroni）</li>
-                    <li class="list-group-item border-0">彈性 P-value 閾值設定</li>
-                    <li class="list-group-item border-0">視覺化結果展示（Volcano Plot, Bubble Plot）</li>
-                    <li class="list-group-item border-0">支援多種生物特徵資料庫</li>
+                    <li class="list-group-item border-0"><strong>Enrichment Analysis</strong></li>
+                    <li class="list-group-item border-0"><strong>Depletion Analysis</strong></li>
+                    <li class="list-group-item border-0">Multiple statistical correction methods (FDR, Bonferroni)</li>
+                    <li class="list-group-item border-0">Flexible P-value threshold settings</li>
+                    <li class="list-group-item border-0">Visualized result display (Volcano Plot, Bubble Plot)</li>
+                    <li class="list-group-item border-0">Support for multiple biological feature databases</li>
                 </ul>
             </div>
         </div>
@@ -49,20 +49,20 @@
     <div class="col-md-6">
         <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5>快速開始</h5>
+                <h5>Quick Start</h5>
                 <ol class="mb-3">
-                    <li>準備您的線蟲基因清單（WormBase Gene IDs）</li>
-                    <li>前往 <strong>Tool</strong> 頁面</li>
-                    <li>貼上基因 ID</li>
-                    <li>選擇要分析的生物特徵</li>
-                    <li>點擊 <strong>Analyze</strong> 開始分析</li>
+                    <li>Prepare your nematode gene list (WormBase Gene IDs)</li>
+                    <li>Navigate to the <strong>Tool</strong> page</li>
+                    <li>Paste your gene IDs</li>
+                    <li>Select biological features to analyze</li>
+                    <li>Click <strong>Analyze</strong> to start analysis</li>
                 </ol>
                 <div class="d-grid gap-2">
                     <a href="{% url 'tool' %}" class="btn btn-primary btn-lg">
-                        開始分析 →
+                        Start Analysis →
                     </a>
                     <a href="{% url 'help' %}" class="btn btn-outline-secondary">
-                        查看使用說明
+                        View Help
                     </a>
                 </div>
             </div>
@@ -73,10 +73,10 @@
 <div class="row">
     <div class="col-md-12">
         <div class="alert alert-info" role="alert">
-            <h5 class="alert-heading">使用提示</h5>
+            <h5 class="alert-heading">Tips</h5>
             <p class="mb-0">
-                不確定如何開始？查看 <a href="{% url 'help' %}" class="alert-link">Help</a> 頁面了解詳細使用說明，
-                或參考我們提供的範例基因清單進行測試。
+                Not sure where to start? Check out our <a href="{% url 'help' %}" class="alert-link">Help</a> page for detailed instructions,
+                or try our example gene lists for testing.
             </p>
         </div>
     </div>

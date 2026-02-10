@@ -1,10 +1,13 @@
 from django.shortcuts import render
+from django.http import HttpResponse
 import json
 import pandas as pd
 import scipy.stats
 from statsmodels.stats.multitest import multipletests
 import math
 import csv
+import io
+from django.utils.encoding import escape_uri_path
 
 # 導入 GO 富集分析工具函式
 from .go_enrichment_utils import perform_go_fisher_exact_test, apply_multiple_test_correction, calculate_log10_p
@@ -193,7 +196,13 @@ def tool2_view(request):
                             'p_deplete_bon': r['p_deplete_bonf']
                         })
                     
-                    results_data[f'go_{go_type}'] = {
+                    # 調試：檢查結果是否正確
+                    if go_results:
+                        import sys
+                        print(f"DEBUG: GO {go_type} results count: {len(go_results)}", file=sys.stderr)
+                        print(f"DEBUG: First result keys: {list(go_results[0].keys())}", file=sys.stderr)
+                    
+                    results_data[go_type] = {
                         'results': go_results,
                         'input_count': B,
                         'background_count': D
@@ -203,7 +212,7 @@ def tool2_view(request):
                     context[f'error_{go_type}'] = f"GO 分析出錯: {str(e)}"
         
         # ===== 原有的 Domain 分析 (保持相容) =====
-        if 'protein_domain' in selected_features:
+        if False and 'protein_domain' in selected_features:
             try:
                 domain_data = pd.read_excel("domain_test.xlsx")
             except Exception as e:
@@ -267,7 +276,111 @@ def tool2_view(request):
         if results_data:
             context['result_json'] = json.dumps(results_data)
             context['selected_features'] = selected_features
+            context['input_count'] = len(input_genes)
+            # 儲存結果到會話以供下載
+            request.session['analysis_results'] = results_data
+            request.session['selected_features'] = selected_features
         else:
             context['error'] = "沒有可用的分析結果"
 
     return render(request, 'tool2.html', context)
+
+
+def download_analysis_results(request):
+    """生成並下載分析結果 CSV 檔案"""
+    analysis_type = request.GET.get('type')  # e.g., 'go_mf', 'go_bp', 'go_cc', 'protein_domain'
+    result_format = request.GET.get('format')  # 'enrichment' or 'depletion'
+    
+    # 從會話獲取結果
+    results_data = request.session.get('analysis_results', {})
+    
+    if not results_data or analysis_type not in results_data:
+        return HttpResponse("分析結果不存在", status=404)
+    
+    # 取得該分析類型的結果
+    analysis_result = results_data[analysis_type]
+    results = analysis_result.get('results', [])
+    
+    if not results:
+        return HttpResponse("沒有可用的結果", status=404)
+    
+    # 決定列名稱和要使用的 p-value 列
+    if result_format == 'enrichment':
+        p_value_col = 'p_enrich_raw'
+        p_fdr_col = 'p_enrich_fdr'
+        p_bon_col = 'p_enrich_bon'
+        filename_suffix = 'enrichment'
+    elif result_format == 'depletion':
+        p_value_col = 'p_deplete_raw'
+        p_fdr_col = 'p_deplete_fdr'
+        p_bon_col = 'p_deplete_bon'
+        filename_suffix = 'depletion'
+    else:
+        return HttpResponse("無效的格式參數", status=400)
+    
+    # 映射分析類型到顯示名稱
+    type_names = {
+        'go_mf': 'MolecularFunction',
+        'go_bp': 'BiologicalProcess',
+        'go_cc': 'CellularComponent',
+        'protein_domain': 'ProteinDomain'
+    }
+    type_display = type_names.get(analysis_type, analysis_type)
+    
+    # 生成 CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # 寫入表頭（與 f3 程序相同格式）
+    writer.writerow([
+        'Domain Name',
+        'Expected Ratio',
+        'Observed Ratio',
+        'Fold Change',
+        'P-value',
+        'FDR P-value',
+        'Bonferroni P-value',
+        'log2(Fold Change)',
+        '-log10(P-value)',
+        '-log10(FDR P-value)',
+        '-log10(Bonferroni P-value)'
+    ])
+    
+    # 計算 -log10 值
+    def calc_neg_log10(p_value):
+        try:
+            p = float(p_value)
+            if p > 0:
+                return -math.log10(p)
+            else:
+                return 0
+        except:
+            return 0
+    
+    # 寫入數據
+    for row in results:
+        p_raw = float(row.get(p_value_col, 1))
+        p_fdr = float(row.get(p_fdr_col, 1))
+        p_bon = float(row.get(p_bon_col, 1))
+        log2_fc = float(row.get('log2_fold_change', 0))
+        
+        writer.writerow([
+            row.get('domain', ''),
+            row.get('exp_str', ''),
+            row.get('obs_str', ''),
+            f"{2 ** log2_fc:.14f}",  # 從 log2 fold change 計算 fold change
+            f"{p_raw:.16e}",
+            f"{p_fdr:.16e}",
+            f"{p_bon:.16e}",
+            f"{log2_fc:.16e}",
+            f"{calc_neg_log10(p_raw):.16e}",
+            f"{calc_neg_log10(p_fdr):.16e}",
+            f"{calc_neg_log10(p_bon):.16e}"
+        ])
+    
+    # 準備 HTTP 響應
+    response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+    filename = f"GO_{type_display}_{filename_suffix}_result.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
