@@ -319,8 +319,8 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Term</th>
-                                <th>-log10(P-value)</th>
-                                <th>Fold Enrichment</th>
+                                <th>P-value</th>
+                                <th>Log2 Fold Enrichment</th>
                                 <th>Observed Ratio (B/A)</th>
                                 <th>Expected Ratio (D/C)</th>
                             </tr>
@@ -335,8 +335,8 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Term</th>
-                                <th>-log10(P-value)</th>
-                                <th>Fold Enrichment</th>
+                                <th>P-value</th>
+                                <th>Log2 Fold Enrichment</th>
                                 <th>Observed Ratio (B/A)</th>
                                 <th>Expected Ratio (D/C)</th>
                             </tr>
@@ -514,15 +514,15 @@ WBGene00021929`;
                     p_deplete = row.p_deplete_bon;
                 }
 
-                const foldEnrichment = Math.pow(2, row.log2_fold_change).toFixed(2);
+                const log2FoldEnrichment = Number(row.log2_fold_change).toFixed(2);
 
                 if (p_enrich !== undefined && p_enrich <= cutoff) {
                     const tr = document.createElement('tr');
                     if (p_enrich < 0.05) tr.classList.add('table-danger');
                     tr.innerHTML = `
                         <td><a href="#" class="text-decoration-none">${row.domain}</a></td>
-                        <td>${calcLog10(p_enrich)}</td>
-                        <td>${foldEnrichment}</td>
+                        <td>${p_enrich}</td>
+                        <td>${log2FoldEnrichment}</td>
                         <td>${row.obs_str}</td>
                         <td>${row.exp_str}</td>
                     `;
@@ -533,8 +533,8 @@ WBGene00021929`;
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><a href="#" class="text-decoration-none">${row.domain}</a></td>
-                        <td>${calcLog10(p_deplete)}</td>
-                        <td>${foldEnrichment}</td>
+                        <td>${p_deplete}</td>
+                        <td>${log2FoldEnrichment}</td>
                         <td>${row.obs_str}</td>
                         <td>${row.exp_str}</td>
                     `;
