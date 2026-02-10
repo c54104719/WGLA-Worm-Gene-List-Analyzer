@@ -300,51 +300,21 @@
 
             <div class="d-flex justify-content-between mb-3 align-items-center">
                 <div id="download-area"></div>
-                
-                <!-- 切換 Enrichment / Depletion 的分頁 -->
-                <ul class="nav nav-pills" id="pills-tab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="pills-enrich-tab" data-bs-toggle="pill" data-bs-target="#pills-enrich" type="button">Enrichment</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="pills-deplete-tab" data-bs-toggle="pill" data-bs-target="#pills-deplete" type="button">Depletion</button>
-                    </li>
-                </ul>
             </div>
 
-            <div class="tab-content" id="pills-tabContent">
-                <!-- Enrichment Table -->
-                <div class="tab-pane fade show active" id="pills-enrich">
-                    <table id="enrichTable" class="table table-hover table-striped w-100">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Term</th>
-                                <th>P-value</th>
-                                <th>Log2 Fold Enrichment</th>
-                                <th>Observed Ratio (B/A)</th>
-                                <th>Expected Ratio (D/C)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="enrichBody"></tbody>
-                    </table>
-                </div>
-
-                <!-- Depletion Table -->
-                <div class="tab-pane fade" id="pills-deplete">
-                    <table id="depleteTable" class="table table-hover table-striped w-100">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Term</th>
-                                <th>P-value</th>
-                                <th>Log2 Fold Enrichment</th>
-                                <th>Observed Ratio (B/A)</th>
-                                <th>Expected Ratio (D/C)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="depleteBody"></tbody>
-                    </table>
-                </div>
-            </div>
+            <table id="enrichTable" class="table table-hover table-striped w-100">
+                <thead class="table-light">
+                    <tr>
+                        <th>Term</th>
+                        <th>Trend</th>
+                        <th>P-value</th>
+                        <th>Log2 Fold Change</th>
+                        <th>Observed Ratio (B/A)</th>
+                        <th>Expected Ratio (D/C)</th>
+                    </tr>
+                </thead>
+                <tbody id="enrichBody"></tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -471,13 +441,13 @@ WBGene00021929`;
             `;
         }
 
-        function calcLog10(p) {
-            if (!p || p <= 0) return 0;
-            return (-Math.log10(p)).toFixed(2);
+        function formatPValue(p) {
+            const value = Number(p);
+            if (!Number.isFinite(value)) return '';
+            return value.toExponential(2);
         }
 
         let enrichDataTable = null;
-        let depleteDataTable = null;
 
         function updateTables() {
             if (!resultsData || !currentFeatureKey) return;
@@ -493,12 +463,9 @@ WBGene00021929`;
             if (!data || !data.results) return;
 
             if (enrichDataTable) { enrichDataTable.destroy(); enrichDataTable = null; }
-            if (depleteDataTable) { depleteDataTable.destroy(); depleteDataTable = null; }
 
             const enrichBody = document.getElementById('enrichBody');
-            const depleteBody = document.getElementById('depleteBody');
             enrichBody.innerHTML = '';
-            depleteBody.innerHTML = '';
 
             data.results.forEach(row => {
                 let p_enrich, p_deplete;
@@ -514,15 +481,16 @@ WBGene00021929`;
                     p_deplete = row.p_deplete_bon;
                 }
 
-                const log2FoldEnrichment = Number(row.log2_fold_change).toFixed(2);
+                const log2FoldChange = Number(row.log2_fold_change).toFixed(2);
 
                 if (p_enrich !== undefined && p_enrich <= cutoff) {
                     const tr = document.createElement('tr');
                     if (p_enrich < 0.05) tr.classList.add('table-danger');
                     tr.innerHTML = `
                         <td><a href="#" class="text-decoration-none">${row.domain}</a></td>
-                        <td>${p_enrich}</td>
-                        <td>${log2FoldEnrichment}</td>
+                        <td>Enriched</td>
+                        <td>${formatPValue(p_enrich)}</td>
+                        <td>${log2FoldChange}</td>
                         <td>${row.obs_str}</td>
                         <td>${row.exp_str}</td>
                     `;
@@ -533,22 +501,19 @@ WBGene00021929`;
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><a href="#" class="text-decoration-none">${row.domain}</a></td>
-                        <td>${p_deplete}</td>
-                        <td>${log2FoldEnrichment}</td>
+                        <td>Depleted</td>
+                        <td>${formatPValue(p_deplete)}</td>
+                        <td>${log2FoldChange}</td>
                         <td>${row.obs_str}</td>
                         <td>${row.exp_str}</td>
                     `;
-                    depleteBody.appendChild(tr);
+                    enrichBody.appendChild(tr);
                 }
             });
 
             enrichDataTable = $('#enrichTable').DataTable({ 
                 "order": [[ 1, "desc" ]], 
                 "pageLength": 10
-            }); 
-            depleteDataTable = $('#depleteTable').DataTable({ 
-                "order": [[ 1, "desc" ]],
-                "pageLength": 10 
             });
         }
     </script>
