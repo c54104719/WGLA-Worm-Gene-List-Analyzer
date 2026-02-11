@@ -12,7 +12,7 @@ from statsmodels.stats.multitest import multipletests
 
 # ========== 檔案路徑設定 ==========
 population_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d01_live_genes_only.csv"
-feature_table_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d12_fgg_feature_table.csv"
+feature_table_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d12_fgg_55feature_table.csv"
 input_genes_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d13_example_input.txt"
 enrichment_output = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d14_fgg_exampleOutput_enrichment.csv"
 depletion_output = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d14_fgg_exampleOutput_depletion.csv"
