@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW4PreprocessRawData\f4_preprocess_go_annotation.py
 """
 前處理 WormBase GO annotation 檔案
 從 gene_association.WS298.wb.c_elegans 提取所需欄位，輸出為 CSV
