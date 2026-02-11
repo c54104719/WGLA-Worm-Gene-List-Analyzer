@@ -6,8 +6,8 @@
 import pandas as pd
 
 # ========== 檔案路徑設定 ==========
-input_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d12_fgg_cleaned.csv"
-output_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d21_fgg_feature_table.csv"
+input_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d11_fgg_cleaned.csv"
+output_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d12_fgg_feature_table.csv"
 
 print("=" * 70)
 print("反整理特徵表生成程式")

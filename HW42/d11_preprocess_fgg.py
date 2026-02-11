@@ -7,9 +7,9 @@
 import pandas as pd
 
 # ========== 檔案路徑設定 ==========
-whitelist_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d11_live_genes_only.csv"
+whitelist_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d01_live_genes_only.csv"
 raw_data_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\GLH4.master.21_23G.csv"
-output_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d12_fgg_cleaned.csv"
+output_file = r"C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\HW42\d11_fgg_cleaned.csv"
 
 print("=" * 60)
 print("資料清洗程式 - GLH4.master.21_23G.csv")
