@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 import json
 import pandas as pd
 import scipy.stats
@@ -280,6 +280,8 @@ def tool2_view(request):
             # 儲存結果到會話以供下載
             request.session['analysis_results'] = results_data
             request.session['selected_features'] = selected_features
+            # 儲存基因列表到會話以供證據頁面使用
+            request.session['current_gene_list'] = list(input_genes)
         else:
             context['error'] = "沒有可用的分析結果"
 
@@ -384,3 +386,78 @@ def download_analysis_results(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+
+def evidence_view(request):
+    """
+    AJAX API - 返回特定 GO term 的證據數據（JSON格式）
+    供 Modal 窗口在前端使用
+    """
+    from pathlib import Path
+    
+    try:
+        # 從 GET 參數獲取 feature 和 term
+        feature = request.GET.get('feature')
+        term = request.GET.get('term')
+        
+        if not feature or not term:
+            return JsonResponse({'error': '缺少 feature 或 term 參數'}, status=400)
+        
+        # 從會話獲取基因列表
+        gene_list = request.session.get('current_gene_list', [])
+        if not gene_list:
+            return JsonResponse({'error': '會話中找不到基因列表，請先執行分析'}, status=400)
+        
+        gene_set = set(gene_list)
+        
+        # CSV 文件位置
+        csv_dir = Path(Path(__file__).parent.parent.parent) / 'HW4PreprocessRawData'
+        csv_file = csv_dir / 'f5_go_annotation_with_terms.csv'
+        
+        if not csv_file.exists():
+            return JsonResponse({'error': f'找不到 CSV 文件: {csv_file}'}, status=500)
+        
+        # 讀取 CSV 並篩選數據
+        evidence_list = []
+        unique_genes = set()
+        go_term_desc = None  # 儲存 GO term 描述
+        
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # 檢查 GO ID 是否匹配
+                if row.get('GO ID') == term:
+                    # 第一次匹配時，取得 GO term 描述
+                    if go_term_desc is None:
+                        go_term_desc = row.get('GO_term', 'N/A')
+                    
+                    # 檢查基因是否在用戶輸入列表中
+                    worm_id = row.get('WormBase ID', '')
+                    symbol = row.get('Symbol', '')
+                    
+                    if worm_id in gene_set or symbol in gene_set:
+                        evidence_list.append({
+                            'gene_id': worm_id,
+                            'gene_name': symbol,
+                            'go_term': row.get('GO_term', ''),
+                            'reference': row.get('Reference', ''),
+                            'evidence_code': row.get('Evidence Code', ''),
+                            'aspect': row.get('Aspect', '')
+                        })
+                        unique_genes.add(symbol if symbol else worm_id)
+        
+        # 返回 JSON 數據
+        response_data = {
+            'term_id': term,
+            'feature': feature,
+            'go_term': go_term_desc,
+            'total_evidence_count': len(evidence_list),
+            'unique_gene_count': len(unique_genes),
+            'evidence_list': evidence_list
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({'error': f'處理 CSV 文件時出錯: {str(e)}\n{traceback.format_exc()}'}, status=500)

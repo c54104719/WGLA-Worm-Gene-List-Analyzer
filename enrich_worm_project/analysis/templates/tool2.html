@@ -318,6 +318,99 @@
         </div>
     </div>
 </div>
+
+<!-- Evidence Modal -->
+<div class="modal fade" id="evidenceModal" tabindex="-1" aria-labelledby="evidenceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title" id="evidenceModalLabel">GO Term Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Loading indicator -->
+                <div id="evidenceLoading" class="text-center" style="display: none; padding: 40px;">
+                    <div class="spinner-border text-secondary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                
+                <!-- Evidence content -->
+                <div id="evidenceContent" style="display: none;">
+                    <!-- User's Specification Section -->
+                    <div class="mb-4">
+                        <h6 class="mb-3"><strong>User's Specification</strong></h6>
+                        <table class="table table-sm table-borderless">
+                            <tbody>
+                                <tr class="border-bottom">
+                                    <th style="width: 30%; background-color: #f8f9fa;">GO ID</th>
+                                    <td id="specGoId"></td>
+                                </tr>
+                                <tr class="border-bottom">
+                                    <th style="background-color: #f8f9fa;">GO Term</th>
+                                    <td id="specGoTerm"></td>
+                                </tr>
+                                <tr class="border-bottom">
+                                    <th style="background-color: #f8f9fa;"># of genes in the list</th>
+                                    <td id="specGeneCount"></td>
+                                </tr>
+                                <tr>
+                                    <th style="background-color: #f8f9fa;">Multiple hypothesis testing</th>
+                                    <td id="specMethod"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Analysis Result Section -->
+                    <div class="mb-4">
+                        <h6 class="mb-3"><strong>Analysis Result</strong></h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="analysisResultTable">
+                                <thead style="background-color: #f8f9fa;">
+                                    <tr>
+                                        <th>Enriched Term</th>
+                                        <th>Observed Ratio</th>
+                                        <th>Expected Ratio</th>
+                                        <th>-log10(Corrected p-value)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="analysisResultBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Evidence Details Section -->
+                    <div class="mb-4">
+                        <h6 class="mb-3" id="evidenceSummaryTitle"><strong>Evidence Details</strong></h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="evidenceTable">
+                                <thead style="background-color: #f8f9fa;">
+                                    <tr>
+                                        <th>Gene Name</th>
+                                        <th>Gene ID</th>
+                                        <th>Gene Description</th>
+                                        <th>Evidence Code</th>
+                                        <th>Reference</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="evidenceTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Error message -->
+                <div id="evidenceError" class="alert alert-danger" style="display: none;"></div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}
 {% endblock %}
 
@@ -483,6 +576,11 @@ WBGene00021929`;
 
                 const log2FoldChange = Number(row.log2_fold_change).toFixed(2);
 
+                // 解析 Observed Ratio 格式 "A/B (Ratio%)" -> A, B
+                const obsMatch = row.obs_str.match(/^(\d+)\/(\d+)/);
+                const obsA = obsMatch ? obsMatch[1] : '0';
+                const obsRest = row.obs_str.substring(row.obs_str.indexOf('/'));
+
                 if (p_enrich !== undefined && p_enrich <= cutoff) {
                     const tr = document.createElement('tr');
                     if (p_enrich < 0.05) tr.classList.add('table-danger');
@@ -491,7 +589,13 @@ WBGene00021929`;
                         <td>Enriched</td>
                         <td>${formatPValue(p_enrich)}</td>
                         <td>${log2FoldChange}</td>
-                        <td>${row.obs_str}</td>
+                        <td><button class="btn btn-link btn-sm p-0 evidence-btn" 
+                            data-feature="${currentFeatureKey}" 
+                            data-term="${row.domain}"
+                            data-row='${JSON.stringify(row)}'
+                            data-method="${method}"
+                            data-p-value="${p_enrich}"
+                            style="color: #0d6efd; font-weight: bold; text-decoration: none;">${obsA}</button>${obsRest}</td>
                         <td>${row.exp_str}</td>
                     `;
                     enrichBody.appendChild(tr);
@@ -504,17 +608,120 @@ WBGene00021929`;
                         <td>Depleted</td>
                         <td>${formatPValue(p_deplete)}</td>
                         <td>${log2FoldChange}</td>
-                        <td>${row.obs_str}</td>
+                        <td><button class="btn btn-link btn-sm p-0 evidence-btn" 
+                            data-feature="${currentFeatureKey}" 
+                            data-term="${row.domain}"
+                            data-row='${JSON.stringify(row)}'
+                            data-method="${method}"
+                            data-p-value="${p_deplete}"
+                            style="color: #0d6efd; font-weight: bold; text-decoration: none;">${obsA}</button>${obsRest}</td>
                         <td>${row.exp_str}</td>
                     `;
                     enrichBody.appendChild(tr);
                 }
+            });
+            
+            // 綁定 evidence 按鈕事件
+            document.querySelectorAll('.evidence-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const feature = btn.getAttribute('data-feature');
+                    const term = btn.getAttribute('data-term');
+                    const rowDataStr = btn.getAttribute('data-row');
+                    const method = btn.getAttribute('data-method');
+                    const pValue = parseFloat(btn.getAttribute('data-p-value'));
+                    
+                    const rowData = JSON.parse(rowDataStr);
+                    loadEvidence(feature, term, rowData, method, pValue);
+                });
             });
 
             enrichDataTable = $('#enrichTable').DataTable({ 
                 "order": [[ 2, "asc" ]], 
                 "pageLength": 10
             });
+        }
+        
+        // 通過 AJAX 加載證據數據並顯示在 Modal 中
+        function loadEvidence(feature, term, rowData, method, pValue) {
+            const modal = new bootstrap.Modal(document.getElementById('evidenceModal'));
+            const loading = document.getElementById('evidenceLoading');
+            const content = document.getElementById('evidenceContent');
+            const error = document.getElementById('evidenceError');
+            
+            // 重置顯示狀態
+            loading.style.display = 'block';
+            content.style.display = 'none';
+            error.style.display = 'none';
+            
+            // 顯示 Modal
+            modal.show();
+            
+            // AJAX 請求
+            fetch(`/analysis/evidence/?feature=${feature}&term=${encodeURIComponent(term)}`)
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    
+                    if (data.error) {
+                        error.textContent = data.error;
+                        error.style.display = 'block';
+                    } else {
+                        // 填充 User's Specification 部分
+                        document.getElementById('specGoId').textContent = term;
+                        document.getElementById('specGoTerm').textContent = data.go_term || 'N/A';
+                        document.getElementById('specGeneCount').textContent = data.unique_gene_count;
+                        
+                        // 轉換 method 標籤
+                        const methodDisplay = method === 'fdr' ? 'FDR correction' : 
+                                            method === 'bon' ? 'Bonferroni correction' : 
+                                            'None (Raw P-value)';
+                        document.getElementById('specMethod').textContent = methodDisplay;
+                        
+                        // 填充 Analysis Result 表格（統計信息）
+                        let analysisHtml = `
+                            <tr>
+                                <td><strong>${term}</strong></td>
+                                <td>${rowData.obs_str}</td>
+                                <td>${rowData.exp_str}</td>
+                                <td>${(-Math.log10(pValue)).toFixed(2)}</td>
+                            </tr>
+                        `;
+                        document.getElementById('analysisResultBody').innerHTML = analysisHtml;
+                        
+                        // 更新標題
+                        document.getElementById('evidenceSummaryTitle').innerHTML = 
+                            `<strong>${data.total_evidence_count} evidence of the ${data.unique_gene_count} input genes that are associated with the GO Term</strong>`;
+                        
+                        // 填充 Evidence Details 表格
+                        const tableBody = document.getElementById('evidenceTableBody');
+                        tableBody.innerHTML = '';
+                        
+                        if (data.evidence_list.length === 0) {
+                            tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No evidence found</td></tr>';
+                        } else {
+                            data.evidence_list.forEach(evidence => {
+                                const row = `
+                                    <tr>
+                                        <td><strong>${evidence.gene_name}</strong></td>
+                                        <td><code>${evidence.gene_id}</code></td>
+                                        <td><small>${evidence.go_term}</small></td>
+                                        <td><small>${evidence.evidence_code}</small></td>
+                                        <td><small>${evidence.reference}</small></td>
+                                    </tr>
+                                `;
+                                tableBody.innerHTML += row;
+                            });
+                        }
+                        
+                        content.style.display = 'block';
+                    }
+                })
+                .catch(err => {
+                    loading.style.display = 'none';
+                    error.textContent = `Error loading evidence: ${err.message}`;
+                    error.style.display = 'block';
+                });
         }
     </script>
     {% endif %}
