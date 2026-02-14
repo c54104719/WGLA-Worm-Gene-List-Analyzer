@@ -131,18 +131,18 @@ def developer_view(request):
     return render(request, 'developer.html')
 
 def tool2_view(request):
-    """分析工具頁面 2 - 帶功能選擇 (包括 GO 項詞分析)"""
+    """分析工具頁面 2 - 帶功能選擇 (包括 GO 項詞分析 + FGG)"""
     context = {}
 
+    # 設定 FGG 檔案路徑
     fgg_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'HW42', 'd12_fgg_55feature_table.csv')
     fgg_options = []
     
+    # 1. 讀取 FGG 選項供前端顯示 (GET/POST 都要做)
     if os.path.exists(fgg_file_path):
         try:
-            # 讀取 CSV
             fgg_df = pd.read_csv(fgg_file_path)
-            # 假設 CSV 欄位有 'Feature Name' (顯示名稱) 和 'Gene' (基因列表)
-            # 我們只需要傳名稱給前端
+            # 根據你的截圖，欄位名稱是 'Gene list'
             for _, row in fgg_df.iterrows():
                 fname = row.get('Gene list', '')
                 if fname:
@@ -150,24 +150,22 @@ def tool2_view(request):
         except Exception as e:
             print(f"Error loading FGG file: {e}")
     else:
-        # 如果找不到檔案，為了不讓網頁掛掉，可以放幾個假資料測試
         print(f"Warning: FGG file not found at {fgg_file_path}")
         fgg_options = [{'id': 'CSR1IP', 'name': 'CSR1IP (Test)'}]
 
-    # 把選項傳給前端
     context['fgg_options'] = fgg_options
     
+    # 2. 處理分析請求 (POST)
     if request.method == 'POST':
-        # 1. 獲取使用者輸入的基因列表
+        # (A) 獲取使用者輸入的基因列表
         input_text = request.POST.get('gene_list', '')
-        # 處理輸入：支援換行、逗號、空白分隔
         input_genes = set([x.strip() for x in input_text.replace('\n', ' ').replace(',', ' ').split() if x.strip()])
         
         if not input_genes:
             context['error'] = "請輸入至少一個基因 ID"
             return render(request, 'tool2.html', context)
 
-        # 2. 獲取選擇的功能
+        # (B) 獲取選擇的功能 (features)
         selected_features = request.POST.getlist('features')
         if not selected_features:
             context['error'] = "請至少選擇一個分析功能"
@@ -175,39 +173,28 @@ def tool2_view(request):
 
         results_data = {}
         
-        # ===== GO 項詞分析 =====
+        # === 區塊 1: GO 項詞分析 (保持不變) ===
         go_types = ['go_mf', 'go_bp', 'go_cc']
         go_analysis_selected = [f for f in selected_features if f in go_types]
         
         if go_analysis_selected:
-            # GO 特徵表檔案位置 (需要與 manage.py 同目錄)
             go_files = {
-                'go_mf': 'GO_Term_domain_type_F_live_only.csv',  # MF = Molecular Function
-                'go_bp': 'GO_Term_domain_type_P_live_only.csv',  # BP = Biological Process
-                'go_cc': 'GO_Term_domain_type_C_live_only.csv'   # CC = Cellular Component
+                'go_mf': 'GO_Term_domain_type_F_live_only.csv',
+                'go_bp': 'GO_Term_domain_type_P_live_only.csv',
+                'go_cc': 'GO_Term_domain_type_C_live_only.csv'
             }
-            
             for go_type in go_analysis_selected:
                 try:
                     feature_table = load_go_feature_table(go_files[go_type])
-                    if feature_table is None:
-                        context[f'warning_{go_type}'] = f"找不到 GO 特徵表檔案 {go_files[go_type]}"
-                        continue
+                    if feature_table is None: continue
                     
-                    # 執行 Fisher's Exact Test
-                    results, B, D = perform_go_fisher_exact_test(
-                        input_genes,
-                        feature_table,
-                        total_population=GO_TOTAL_GENES
-                    )
-                    
-                    # 多重檢定校正
+                    results, B, D = perform_go_fisher_exact_test(input_genes, feature_table, total_population=GO_TOTAL_GENES)
                     results = apply_multiple_test_correction(results)
                     
-                    # 轉為前端可用的格式
-                    go_results = []
+                    # 轉為前端格式
+                    formatted_results = []
                     for r in results:
-                        go_results.append({
+                        formatted_results.append({
                             'domain': r['go_id'],
                             'exp_str': r['exp_str'],
                             'obs_str': r['obs_str'],
@@ -220,94 +207,87 @@ def tool2_view(request):
                             'p_deplete_bon': r['p_deplete_bonf']
                         })
                     
-                    # 調試：檢查結果是否正確
-                    if go_results:
-                        import sys
-                        print(f"DEBUG: GO {go_type} results count: {len(go_results)}", file=sys.stderr)
-                        print(f"DEBUG: First result keys: {list(go_results[0].keys())}", file=sys.stderr)
-                    
                     results_data[go_type] = {
-                        'results': go_results,
+                        'results': formatted_results,
+                        'input_count': B, 'background_count': D
+                    }
+                except Exception as e:
+                    print(f"GO Analysis Error: {e}")
+
+        # === 區塊 2: FGG 分析 (新增功能) ===
+        # 找出使用者選了哪些 FGG (透過比對 fgg_options 的 id)
+        selected_fgg_ids = set(f for f in selected_features if any(opt['id'] == f for opt in fgg_options))
+        
+        if selected_fgg_ids:
+            try:
+                # 1. 準備 Feature Table: { "FGG_Name": set("Gene1", "Gene2"...) }
+                fgg_feature_table = {}
+                
+                # 重新讀取 DataFrame (如果上面已經讀過，這裡其實可以優化，但為了邏輯清晰先重讀)
+                if os.path.exists(fgg_file_path):
+                    fgg_df = pd.read_csv(fgg_file_path)
+                    
+                    for _, row in fgg_df.iterrows():
+                        fname = row.get('Gene list', '') # 你的截圖欄位名
+                        
+                        # 只處理使用者勾選的 FGG
+                        if fname in selected_fgg_ids:
+                            # 你的截圖欄位名是 'Gene'，且用逗號分隔
+                            gene_str = str(row.get('Gene', ''))
+                            # 解析基因：逗號分隔，並去除前後空白
+                            gene_set = set(g.strip() for g in gene_str.split(',') if g.strip())
+                            fgg_feature_table[fname] = gene_set
+                
+                if fgg_feature_table:
+                    # 2. 直接呼叫你的通用 Fisher Test 函式
+                    # 背景基因數使用 GO_TOTAL_GENES (49164)
+                    fgg_results_raw, B, D = perform_go_fisher_exact_test(
+                        input_genes, 
+                        fgg_feature_table, 
+                        total_population=GO_TOTAL_GENES 
+                    )
+                    
+                    # 3. 校正 P-value
+                    fgg_results_corrected = apply_multiple_test_correction(fgg_results_raw)
+                    
+                    # 4. 格式化輸出
+                    fgg_formatted_results = []
+                    for r in fgg_results_corrected:
+                        fgg_formatted_results.append({
+                            'domain': r['go_id'], # 前端用 'domain' 當作顯示名稱
+                            'exp_str': r['exp_str'],
+                            'obs_str': r['obs_str'],
+                            'log2_fold_change': round(r['log2_fc'], 2),
+                            'p_enrich_raw': r['p_enrich'],
+                            'p_enrich_fdr': r['p_enrich_fdr'],
+                            'p_enrich_bon': r['p_enrich_bonf'],
+                            'p_deplete_raw': r['p_deplete'],
+                            'p_deplete_fdr': r['p_deplete_fdr'],
+                            'p_deplete_bon': r['p_deplete_bonf']
+                        })
+                    
+                    # 5. 存入結果，Key 取名為 'fgg'
+                    results_data['fgg'] = {
+                        'results': fgg_formatted_results,
                         'input_count': B,
                         'background_count': D
                     }
                     
-                except Exception as e:
-                    context[f'error_{go_type}'] = f"GO 分析出錯: {str(e)}"
-        
-        # ===== 原有的 Domain 分析 (保持相容) =====
-        if False and 'protein_domain' in selected_features:
-            try:
-                domain_data = pd.read_excel("domain_test.xlsx")
             except Exception as e:
-                context['error'] = f"找不到 domain_test.xlsx 或讀取錯誤: {str(e)}"
-                return render(request, 'tool2.html', context)
+                context['error'] = f"FGG 分析出錯: {str(e)}"
+                print(f"FGG Error: {e}")
 
-            results = []
-            B = len(input_genes) # 輸入總數
-            D = TOTAL_GENES      # 背景總數
-
-            # 遍歷所有 Domain 進行計算
-            for index, row in domain_data.iterrows():
-                domain_id = row["Domains"]
-                # 假設 ID 欄位是以逗號分隔的基因字串
-                domain_genes = set(str(row["ID"]).split(",")) 
-                
-                A = len(input_genes.intersection(domain_genes)) # 交集
-                C = len(domain_genes) # 該 Domain 的基因數
-                
-                # Fisher's Exact Test
-                # Enrichment (Greater)
-                _, p_enrich = scipy.stats.fisher_exact([[A, C-A], [B-A, D-C-B+A]], alternative='greater')
-                # Depletion (Less)
-                _, p_deplete = scipy.stats.fisher_exact([[A, C-A], [B-A, D-C-B+A]], alternative='less')
-                
-                # 計算顯示用的數值
-                observed_ratio = A / B if B > 0 else 0
-                expected_ratio = C / D if D > 0 else 0
-                fold_change = observed_ratio / expected_ratio if expected_ratio > 0 else 1
-                # 轉換為 log2 fold change
-                log2_fold_change = math.log2(fold_change) if fold_change > 0 else 0
-                
-                results.append({
-                    "domain": domain_id,
-                    "exp_str": f"{C}/{D} ({expected_ratio:.2%})",
-                    "obs_str": f"{A}/{B} ({observed_ratio:.2%})",
-                    "log2_fold_change": round(log2_fold_change, 2),
-                    "p_enrich_raw": p_enrich,
-                    "p_deplete_raw": p_deplete
-                })
-
-            # 進行多重檢定校正 (FDR & Bonferroni)
-            df = pd.DataFrame(results)
-            
-            # Enrichment 校正
-            df['p_enrich_fdr'] = multipletests(df['p_enrich_raw'], method='fdr_bh')[1]
-            df['p_enrich_bon'] = multipletests(df['p_enrich_raw'], method='bonferroni')[1]
-            
-            # Depletion 校正
-            df['p_deplete_fdr'] = multipletests(df['p_deplete_raw'], method='fdr_bh')[1]
-            df['p_deplete_bon'] = multipletests(df['p_deplete_raw'], method='bonferroni')[1]
-
-            # 轉換成 JSON 格式傳給前端
-            full_data = df.to_dict(orient='records')
-            results_data['protein_domain'] = {
-                'results': full_data,
-                'input_count': B
-            }
+        # === 結束 ===
         
-        # 準備前端顯示
         if results_data:
             context['result_json'] = json.dumps(results_data)
             context['selected_features'] = selected_features
             context['input_count'] = len(input_genes)
-            # 儲存結果到會話以供下載
             request.session['analysis_results'] = results_data
-            request.session['selected_features'] = selected_features
-            # 儲存基因列表到會話以供證據頁面使用
             request.session['current_gene_list'] = list(input_genes)
         else:
-            context['error'] = "沒有可用的分析結果"
+            if not context.get('error'):
+                context['error'] = "沒有可用的分析結果"
 
     return render(request, 'tool2.html', context)
 
