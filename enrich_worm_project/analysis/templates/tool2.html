@@ -148,8 +148,13 @@
                     </div>
 
                     <!-- 2. Functional Gene Group (FGG) (重點修改區) -->
-                    <div class="feature-category">
-                        <h5 class="text-secondary collapsed" data-bs-toggle="collapse" data-bs-target="#propertyFeatures" aria-expanded="false">
+                    <div class="feature-category mt-2">
+                        <!-- 標題與箭頭 (已修正為預設向下) -->
+                        <h5 class="text-secondary collapsed" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#propertyFeatures" 
+                            aria-expanded="false">
+                            
                             <span>Functional Gene Group (FGG)</span>
                             <i class="fas fa-chevron-down toggle-icon"></i>
                         </h5>
@@ -159,36 +164,28 @@
                                 Contains 55 functional groups derived from published datasets.
                             </div>
                             
-                            <!-- 這裡建議使用捲動容器，不然55個會太長 -->
+                            <!-- 捲動容器 (限制高度) -->
                             <div class="fgg-scroll-container">
                                 
-                                <!-- 方法 A：如果後端有傳 fgg_options 列表 (推薦) -->
+                                <!-- 全選按鈕 (Optional, 但很實用) -->
+                                <div class="form-check border-bottom mb-2 pb-2">
+                                    <input class="form-check-input" type="checkbox" id="selectAllFGG" onchange="toggleAllFGG(this)">
+                                    <label class="form-check-label fw-bold" for="selectAllFGG">Select All FGGs</label>
+                                </div>
+
+                                <!-- 使用 Django Template 迴圈列出選項 -->
                                 {% if fgg_options %}
                                     {% for fgg in fgg_options %}
                                     <div class="form-check">
-                                        <!-- value 建議用檔案裡的 Feature Name，例如 "CSR1IP.N2" -->
-                                        <input class="form-check-input" type="checkbox" name="features" value="{{ fgg.id }}" id="fgg_{{ forloop.counter }}">
+                                        <!-- value 是 feature name，傳回後端用 -->
+                                        <input class="form-check-input fgg-checkbox" type="checkbox" name="features" value="{{ fgg.id }}" id="fgg_{{ forloop.counter }}">
                                         <label class="form-check-label" for="fgg_{{ forloop.counter }}">
                                             {{ fgg.name }}
                                         </label>
                                     </div>
                                     {% endfor %}
-                                
                                 {% else %}
-                                    <!-- 方法 B：如果你還沒寫後端，先暫時手動列出幾個測試 (正式版請改用方法 A) -->
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features" value="CSR1IP" id="CSR1IP">
-                                        <label class="form-check-label" for="CSR1IP">CSR-1 Interacting Proteins</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features" value="WAGO1IP" id="WAGO1IP">
-                                        <label class="form-check-label" for="WAGO1IP">WAGO-1 Interacting Proteins</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="features" value="ALG3IP" id="ALG3IP">
-                                        <label class="form-check-label" for="ALG3IP">ALG-3 Interacting Proteins</label>
-                                    </div>
-                                    <!-- ... 你需要在這裡複製貼上 55 個 ... -->
+                                    <p class="text-danger small">No FGG options loaded. Please check backend file path.</p>
                                 {% endif %}
                             </div>
                         </div>
@@ -759,4 +756,12 @@ WBGene00021929`;
         }
     </script>
     {% endif %}
+    <script>
+        function toggleAllFGG(source) {
+            checkboxes = document.querySelectorAll('.fgg-checkbox');
+            for(var i=0, n=checkboxes.length;i<n;i++) {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+    </script>
 {% endblock %}

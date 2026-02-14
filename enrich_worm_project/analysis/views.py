@@ -1,3 +1,4 @@
+import os
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 import json
@@ -132,6 +133,29 @@ def developer_view(request):
 def tool2_view(request):
     """分析工具頁面 2 - 帶功能選擇 (包括 GO 項詞分析)"""
     context = {}
+
+    fgg_file_path = os.path.join(os.path.dirname(__file__), '..', '..', 'HW42', 'd12_fgg_55feature_table.csv')
+    fgg_options = []
+    
+    if os.path.exists(fgg_file_path):
+        try:
+            # 讀取 CSV
+            fgg_df = pd.read_csv(fgg_file_path)
+            # 假設 CSV 欄位有 'Feature Name' (顯示名稱) 和 'Gene' (基因列表)
+            # 我們只需要傳名稱給前端
+            for _, row in fgg_df.iterrows():
+                fname = row.get('Gene list', '')
+                if fname:
+                    fgg_options.append({'id': fname, 'name': fname})
+        except Exception as e:
+            print(f"Error loading FGG file: {e}")
+    else:
+        # 如果找不到檔案，為了不讓網頁掛掉，可以放幾個假資料測試
+        print(f"Warning: FGG file not found at {fgg_file_path}")
+        fgg_options = [{'id': 'CSR1IP', 'name': 'CSR1IP (Test)'}]
+
+    # 把選項傳給前端
+    context['fgg_options'] = fgg_options
     
     if request.method == 'POST':
         # 1. 獲取使用者輸入的基因列表
