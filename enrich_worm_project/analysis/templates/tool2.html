@@ -378,8 +378,12 @@
                                     <td id="specGoId"></td>
                                 </tr>
                                 <tr class="border-bottom">
-                                    <th style="background-color: #f8f9fa;">GO Term</th>
+                                    <th style="background-color: #f8f9fa;">Analyzed Term</th>
                                     <td id="specGoTerm"></td>
+                                </tr>
+                                <tr class="border-bottom">
+                                    <th style="background-color: #f8f9fa;">Analyzed List</th>
+                                    <td id="specListName"></td> <!-- 這裡加了 id 讓 JS 填寫 -->
                                 </tr>
                                 <tr class="border-bottom">
                                     <th style="background-color: #f8f9fa;"># of genes in the list</th>
@@ -703,6 +707,7 @@ WBGene00021929`;
                         document.getElementById('specGoId').textContent = term;
                         document.getElementById('specGoTerm').textContent = data.go_term || 'N/A';
                         document.getElementById('specGeneCount').textContent = data.unique_gene_count;
+                        document.getElementById('specListName').textContent = data.list_name;
                         
                         // 轉換 method 標籤
                         const methodDisplay = method === 'fdr' ? 'FDR correction' : 
