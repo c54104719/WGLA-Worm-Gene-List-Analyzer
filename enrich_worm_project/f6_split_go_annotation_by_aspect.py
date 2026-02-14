@@ -1,3 +1,4 @@
+# C:\Users\yukan\Downloads\COSBI_Lab\enrich_project\enrich_worm_project\f6_split_go_annotation_by_aspect.py
 #!/usr/bin/env python3
 """
 Split go annotation file by Aspect (C, P, F)
