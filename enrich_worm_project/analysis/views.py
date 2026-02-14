@@ -397,66 +397,83 @@ def evidence_view(request):
     AJAX API - 返回特定 GO term 的證據數據（JSON格式）
     供 Modal 窗口在前端使用
     """
-    from pathlib import Path
+    import os
+    import csv
+    from django.http import JsonResponse
     
     try:
-        # 從 GET 參數獲取 feature 和 term
+        # 1. 從 GET 參數獲取 feature 和 term
         feature = request.GET.get('feature')
-        term = request.GET.get('term')
+        term = request.GET.get('term') # 例如 "GO:0005942"
         
         if not feature or not term:
-            return JsonResponse({'error': '缺少 feature 或 term 參數'}, status=400)
+            return JsonResponse({'error': 'Missing feature or term parameter'}, status=400)
         
-        # 從會話獲取基因列表
+        # 2. 從會話獲取基因列表 (使用者輸入的那些基因)
+        # 如果是測試階段 session 常常過期，這裡加個保險，如果拿不到就用空列表避免報錯
         gene_list = request.session.get('current_gene_list', [])
-        if not gene_list:
-            return JsonResponse({'error': '會話中找不到基因列表，請先執行分析'}, status=400)
-        
         gene_set = set(gene_list)
         
-        # CSV 文件位置
-        csv_dir = Path(Path(__file__).parent.parent.parent) / 'HW4PreprocessRawData'
-        csv_file = csv_dir / 'f5_go_annotation_with_terms.csv'
+        # 3. 決定要讀取哪個 CSV 檔案
+        current_dir = os.path.dirname(os.path.abspath(__file__))
         
-        if not csv_file.exists():
-            return JsonResponse({'error': f'找不到 CSV 文件: {csv_file}'}, status=500)
+        # === 關鍵修改：路徑設定 ===
+        # 假設結構是 enrich_project/HW4PreprocessRawData/f5...
+        # views.py 在 enrich_worm_project/analysis/views.py
+        # 所以要往上兩層 (../../) 才能看到 HW4PreprocessRawData
+        csv_path = os.path.join(current_dir, '..', '..', 'HW4PreprocessRawData', 'f5_go_annotation_with_terms.csv')
+        csv_path = os.path.normpath(csv_path)
+
+        # 除錯：印出路徑看看對不對
+        print(f"DEBUG: Loading GO Evidence from: {csv_path}")
         
-        # 讀取 CSV 並篩選數據
+        if not os.path.exists(csv_path):
+             print(f"Error: File not found at {csv_path}")
+             return JsonResponse({'error': f'Evidence file not found at: {csv_path}'}, status=500)
+
+        # 4. 讀取 CSV 並篩選數據
         evidence_list = []
         unique_genes = set()
-        go_term_desc = None  # 儲存 GO term 描述
+        go_term_desc = "N/A" # 預設描述
         
-        with open(csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # 檢查 GO ID 是否匹配
-                if row.get('GO ID') == term:
-                    # 第一次匹配時，取得 GO term 描述
-                    if go_term_desc is None:
-                        go_term_desc = row.get('GO_term', 'N/A')
-                    
-                    # 檢查基因是否在用戶輸入列表中
-                    worm_id = row.get('WormBase ID', '')
-                    symbol = row.get('Symbol', '')
-                    
-                    if worm_id in gene_set or symbol in gene_set:
-                        evidence_list.append({
-                            'gene_id': worm_id,
-                            'gene_name': symbol,
-                            'go_term': row.get('GO_term', ''),
-                            'reference': row.get('Reference', ''),
-                            'evidence_code': row.get('Evidence Code', ''),
-                            'aspect': row.get('Aspect', '')
-                        })
-                        unique_genes.add(symbol if symbol else worm_id)
-        
-        # 返回 JSON 數據
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                
+                for row in reader:
+                    # A. 檢查是否為目標 Term (GO ID)
+                    if row.get('GO ID') == term:
+                        
+                        # 順便抓一下 GO Term 的描述文字
+                        if go_term_desc == "N/A":
+                            go_term_desc = row.get('GO_term', 'N/A')
+
+                        # B. 檢查這行基因是否在使用者輸入的列表中 (只顯示交集)
+                        wbid = row.get('WormBase ID', '').strip()
+                        symbol = row.get('Symbol', '').strip()
+                        
+                        # 如果 WBID 或 Symbol 任一個有中，就加進去
+                        if (wbid in gene_set) or (symbol in gene_set):
+                            evidence_list.append({
+                                'systematic_name': wbid,   
+                                'standard_name': symbol,   
+                                'gene_description': row.get('GO_term', ''), 
+                                'go_term': row.get('GO_term', ''),
+                                'evidence_code': row.get('Evidence Code', ''),
+                                'reference': row.get('Reference', '')
+                            })
+                            unique_genes.add(wbid)
+        except Exception as e:
+            print(f"Error reading CSV: {e}")
+            return JsonResponse({'error': f'Error reading CSV file: {str(e)}'}, status=500)
+
+        # 5. 回傳 JSON
         response_data = {
             'term_id': term,
-            'feature': feature,
             'go_term': go_term_desc,
-            'total_evidence_count': len(evidence_list),
-            'unique_gene_count': len(unique_genes),
+            'list_name': request.session.get('list_name', 'User Input List'),
+            'input_gene_count': len(gene_set), 
+            'associated_gene_count': len(unique_genes), 
             'evidence_list': evidence_list
         }
         
@@ -464,4 +481,5 @@ def evidence_view(request):
         
     except Exception as e:
         import traceback
-        return JsonResponse({'error': f'處理 CSV 文件時出錯: {str(e)}\n{traceback.format_exc()}'}, status=500)
+        print(traceback.format_exc())
+        return JsonResponse({'error': f"Backend Logic Error: {str(e)}"}, status=500)

@@ -690,7 +690,7 @@ WBGene00021929`;
             modal.show();
             
             // AJAX 請求
-            fetch(`/analysis/evidence/?feature=${feature}&term=${encodeURIComponent(term)}`)
+            fetch(`{% url 'evidence_view' %}?feature=${feature}&term=${encodeURIComponent(term)}`)
                 .then(response => response.json())
                 .then(data => {
                     loading.style.display = 'none';
