@@ -455,9 +455,8 @@ def evidence_view(request):
                         # 如果 WBID 或 Symbol 任一個有中，就加進去
                         if (wbid in gene_set) or (symbol in gene_set):
                             evidence_list.append({
-                                'systematic_name': wbid,   
-                                'standard_name': symbol,   
-                                'gene_description': row.get('GO_term', ''), 
+                                'gene_name': symbol,   
+                                'gene_id': wbid,   
                                 'go_term': row.get('GO_term', ''),
                                 'evidence_code': row.get('Evidence Code', ''),
                                 'reference': row.get('Reference', '')
@@ -471,9 +470,11 @@ def evidence_view(request):
         response_data = {
             'term_id': term,
             'go_term': go_term_desc,
+            'feature': feature,
             'list_name': request.session.get('list_name', 'User Input List'),
             'input_gene_count': len(gene_set), 
-            'associated_gene_count': len(unique_genes), 
+            'associated_gene_count': len(unique_genes),
+            'total_evidence_count': len(evidence_list),
             'evidence_list': evidence_list
         }
         
