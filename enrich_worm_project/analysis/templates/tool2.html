@@ -373,6 +373,10 @@
                         <h6 class="mb-3"><strong>User's Specification</strong></h6>
                         <table class="table table-sm table-borderless">
                             <tbody>
+                                 <tr class="border-bottom">
+                                    <th style="width: 30%; background-color: #f8f9fa;">Analyzed Feature</th>
+                                    <td id="specFeatureName"></td> <!-- 這裡加了 id 讓 JS 填寫 -->
+                                </tr>
                                 <tr class="border-bottom">
                                     <th style="width: 30%; background-color: #f8f9fa;">GO ID</th>
                                     <td id="specGoId"></td>
@@ -703,6 +707,16 @@ WBGene00021929`;
                         error.textContent = data.error;
                         error.style.display = 'block';
                     } else {
+                        const featureNames = {
+                            'go_mf': 'GO Term (MF)',
+                            'go_bp': 'GO Term (BP)',
+                            'go_cc': 'GO Term (CC)',
+                            'fgg': 'Functional Gene Group',
+                            'protein_domain': 'Protein Domain',
+                            'disease_ontology': 'DO Term'
+                        };
+                        const featureDisplayName = featureNames[data.feature] || data.feature; 
+                        document.getElementById('specFeatureName').textContent = featureDisplayName;
                         // 填充 User's Specification 部分
                         document.getElementById('specGoId').textContent = term;
                         document.getElementById('specGoTerm').textContent = data.go_term || 'N/A';
