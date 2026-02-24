@@ -313,7 +313,7 @@
     </div>
 
     <!-- 4. 表格視圖 -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mb-4">
         <div class="card-header bg-white">
             <h4 class="mb-0"><i class="fas fa-table me-2"></i>Table View</h4>
         </div>
@@ -348,6 +348,16 @@
             </table>
         </div>
     </div>
+
+    <!-- Bubble Chart - 移至表格之下 -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h4 class="mb-0"><i class="fas fa-chart-bubble me-2"></i>Bubble Chart</h4>
+        </div>
+        <div class="card-body">
+            <div id="bubbleChart" style="width: 100%; height: 500px;"></div>
+        </div>
+    </div>
 </div>
 
 <!-- Evidence Modal -->
@@ -373,21 +383,24 @@
                         <h6 class="mb-3"><strong>User's Specification</strong></h6>
                         <table class="table table-sm table-borderless">
                             <tbody>
-                                 <tr class="border-bottom">
+                                <!-- 新增：Analyzed Feature 欄位 -->
+                                <tr class="border-bottom">
                                     <th style="width: 30%; background-color: #f8f9fa;">Analyzed Feature</th>
-                                    <td id="specFeatureName"></td> <!-- 這裡加了 id 讓 JS 填寫 -->
+                                    <td id="specFeatureName"></td> 
                                 </tr>
                                 <tr class="border-bottom">
                                     <th style="width: 30%; background-color: #f8f9fa;">GO ID</th>
                                     <td id="specGoId"></td>
                                 </tr>
+                                <!-- 修改：將 GO Term 改名為 Analyzed Term -->
                                 <tr class="border-bottom">
                                     <th style="background-color: #f8f9fa;">Analyzed Term</th>
                                     <td id="specGoTerm"></td>
                                 </tr>
+                                <!-- 新增：Analyzed List 欄位 -->
                                 <tr class="border-bottom">
                                     <th style="background-color: #f8f9fa;">Analyzed List</th>
-                                    <td id="specListName"></td> <!-- 這裡加了 id 讓 JS 填寫 -->
+                                    <td id="specListName"></td> 
                                 </tr>
                                 <tr class="border-bottom">
                                     <th style="background-color: #f8f9fa;"># of genes in the list</th>
@@ -457,6 +470,8 @@
     <!-- 確保這些函式庫已經存在 -->
     <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+    <!-- Plotly.js 用於泡泡圖 -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <script>
         // ▼▼▼ 這裡修改：把 loadExample 移到最外面，不要包在 if 裡面 ▼▼▼
@@ -582,6 +597,130 @@ WBGene00021929`;
 
         let enrichDataTable = null;
 
+        /**
+         * 繪製泡泡圖 (Volcano Plot)
+         * @param {Array} results - 分析結果數據
+         * @param {string} method - 校正方法 ('fdr', 'bon', 'raw')
+         */
+        function drawBubbleChart(results, method) {
+            if (!results || results.length === 0) {
+                console.warn('No data for bubble chart');
+                return;
+            }
+
+            // 從 results 中提取數據
+            const trace_enriched = [];
+            const trace_depleted = [];
+
+            results.forEach(row => {
+                // 決定使用哪個 p-value
+                let p_value;
+                if (method === 'raw') {
+                    p_value = row.p_enrich_raw;
+                } else if (method === 'fdr') {
+                    p_value = row.p_enrich_fdr;
+                } else { // 'bon'
+                    p_value = row.p_enrich_bon;
+                }
+
+                // 計算 -log10(p-value)
+                const negLog10P = p_value > 0 ? -Math.log10(p_value) : 0;
+                const log2FC = Number(row.log2_fold_change);
+
+                // 從 obs_str 中提取觀察到的基因數量 A (格式: "A/B (Ratio%)")
+                const obsMatch = row.obs_str.match(/^(\d+)\//);
+                const geneCount = obsMatch ? parseInt(obsMatch[1]) : 1;
+                const bubbleSize = Math.sqrt(geneCount) * 10; // 使用 sqrt 處理大小
+
+                // Hover 文本
+                const hoverText = `<b>${row.domain}</b><br>` +
+                    `P-value: ${p_value.toExponential(2)}<br>` +
+                    `Gene Count: ${geneCount}<br>` +
+                    `log2(FC): ${log2FC.toFixed(2)}`;
+
+                const dataPoint = {
+                    x: log2FC,
+                    y: negLog10P,
+                    size: bubbleSize,
+                    text: hoverText,
+                    name: row.domain,
+                    mode: 'markers',
+                    type: 'scatter'
+                };
+
+                // 根據 log2_fold_change 分類（Enriched 為正，Depleted 為負）
+                if (log2FC > 0) {
+                    trace_enriched.push(dataPoint);
+                } else if (log2FC < 0) {
+                    trace_depleted.push(dataPoint);
+                }
+            });
+
+            // 整合為 Plotly trace
+            const traces = [];
+
+            if (trace_enriched.length > 0) {
+                traces.push({
+                    x: trace_enriched.map(p => p.x),
+                    y: trace_enriched.map(p => p.y),
+                    mode: 'markers',
+                    marker: {
+                        size: trace_enriched.map(p => p.size),
+                        color: '#ff4444', // 紅色表示 Enriched
+                        opacity: 0.7
+                    },
+                    text: trace_enriched.map(p => p.text),
+                    hovertemplate: '%{text}<extra></extra>',
+                    name: 'Enriched',
+                    type: 'scatter'
+                });
+            }
+
+            if (trace_depleted.length > 0) {
+                traces.push({
+                    x: trace_depleted.map(p => p.x),
+                    y: trace_depleted.map(p => p.y),
+                    mode: 'markers',
+                    marker: {
+                        size: trace_depleted.map(p => p.size),
+                        color: '#4444ff', // 藍色表示 Depleted
+                        opacity: 0.7
+                    },
+                    text: trace_depleted.map(p => p.text),
+                    hovertemplate: '%{text}<extra></extra>',
+                    name: 'Depleted',
+                    type: 'scatter'
+                });
+            }
+
+            // 配置 Plotly 佈局
+            const layout = {
+                title: `Bubble Chart - ${featureNames[currentFeatureKey] || currentFeatureKey}`,
+                xaxis: {
+                    title: 'log2(Fold Change)',
+                    zeroline: true,
+                    zerolinewidth: 2,
+                    zerolinecolor: '#999999'
+                },
+                yaxis: {
+                    title: '-log10(P-value)'
+                },
+                hovermode: 'closest',
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: 'white',
+                margin: {
+                    l: 70,
+                    r: 50,
+                    t: 60,
+                    b: 70
+                }
+            };
+
+            // 繪製圖表
+            Plotly.newPlot('bubbleChart', traces, layout, { responsive: true });
+        }
+
+
         function updateTables() {
             if (!resultsData || !currentFeatureKey) return;
 
@@ -680,6 +819,9 @@ WBGene00021929`;
                 "order": [[ 2, "asc" ]], 
                 "pageLength": 10
             });
+
+            // ▼▼▼ 同步更新泡泡圖 ▼▼▼
+            drawBubbleChart(data.results, method);
         }
         
         // 通過 AJAX 加載證據數據並顯示在 Modal 中
@@ -689,15 +831,12 @@ WBGene00021929`;
             const content = document.getElementById('evidenceContent');
             const error = document.getElementById('evidenceError');
             
-            // 重置顯示狀態
             loading.style.display = 'block';
             content.style.display = 'none';
             error.style.display = 'none';
             
-            // 顯示 Modal
             modal.show();
             
-            // AJAX 請求
             fetch(`{% url 'evidence_view' %}?feature=${feature}&term=${encodeURIComponent(term)}`)
                 .then(response => response.json())
                 .then(data => {
@@ -707,7 +846,8 @@ WBGene00021929`;
                         error.textContent = data.error;
                         error.style.display = 'block';
                     } else {
-                        const featureNames = {
+                        // 1. 定義顯示名稱對照表
+                        const featureNamesMap = {
                             'go_mf': 'GO Term (MF)',
                             'go_bp': 'GO Term (BP)',
                             'go_cc': 'GO Term (CC)',
@@ -715,13 +855,14 @@ WBGene00021929`;
                             'protein_domain': 'Protein Domain',
                             'disease_ontology': 'DO Term'
                         };
-                        const featureDisplayName = featureNames[data.feature] || data.feature; 
-                        document.getElementById('specFeatureName').textContent = featureDisplayName;
-                        // 填充 User's Specification 部分
+
+                        // 2. 填入 User's Specification (注意這裡的變數名稱要統一)
+                        const dName = featureNamesMap[data.feature] || data.feature;
+                        document.getElementById('specFeatureName').textContent = dName;
                         document.getElementById('specGoId').textContent = term;
                         document.getElementById('specGoTerm').textContent = data.go_term || 'N/A';
-                        document.getElementById('specGeneCount').textContent = data.unique_gene_count;
-                        document.getElementById('specListName').textContent = data.list_name;
+                        document.getElementById('specListName').textContent = data.list_name || 'User Input List';
+                        document.getElementById('specGeneCount').textContent = data.input_gene_count;
                         
                         // 轉換 method 標籤
                         const methodDisplay = method === 'fdr' ? 'FDR correction' : 
@@ -729,7 +870,7 @@ WBGene00021929`;
                                             'None (Raw P-value)';
                         document.getElementById('specMethod').textContent = methodDisplay;
                         
-                        // 填充 Analysis Result 表格（統計信息）
+                        // 3. 填充 Analysis Result 表格
                         let analysisHtml = `
                             <tr>
                                 <td><strong>${term}</strong></td>
@@ -740,11 +881,11 @@ WBGene00021929`;
                         `;
                         document.getElementById('analysisResultBody').innerHTML = analysisHtml;
                         
-                        // 更新標題
+                        // 4. 更新 Evidence 統計標題 (使用顯眼的紅色強調)
                         document.getElementById('evidenceSummaryTitle').innerHTML = 
-                            `<strong>${data.total_evidence_count} evidence of the ${data.unique_gene_count} input genes that are associated with the GO Term</strong>`;
+                            `<strong><span class="text-danger">${data.total_evidence_count}</span> evidence of the <span class="text-danger">${data.associated_gene_count}</span> input genes that are associated with the Analyzed Term</strong>`;
                         
-                        // 填充 Evidence Details 表格
+                        // 5. 填充 Evidence Details 表格
                         const tableBody = document.getElementById('evidenceTableBody');
                         tableBody.innerHTML = '';
                         
