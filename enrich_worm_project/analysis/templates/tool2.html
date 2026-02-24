@@ -115,35 +115,29 @@
                             <i class="fas fa-chevron-down toggle-icon"></i>
                         </h5>
                         <div id="ontologyFeatures" class="collapse show feature-list">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="select_all_ontology" id="selectAllOntology">
-                                <label class="form-check-label fw-bold" for="selectAllOntology">Select All</label>
-                            </div>
-                            <hr>
-                            <!-- GO Terms -->
+                            <!-- GO Terms 區塊 -->
                             <div class="mb-3">
                                 <label class="fw-bold text-info">Gene Ontology (GO)</label>
+                                <!-- Select All GO 按鈕 -->
+                                <div class="form-check ms-2">
+                                    <input class="form-check-input" type="checkbox" id="selectAllGO" onchange="toggleAllGO(this)">
+                                    <label class="form-check-label fw-bold" for="selectAllGO">Select All GO Terms</label>
+                                </div>
+                                <hr class="my-2">
+                                <!-- GO 選項 -->
                                 <div class="form-check ms-3">
-                                    <input class="form-check-input" type="checkbox" name="features" value="go_mf" id="go_mf">
+                                    <input class="form-check-input go-checkbox" type="checkbox" name="features" value="go_mf" id="go_mf">
                                     <label class="form-check-label" for="go_mf">Molecular Function (MF)</label>
                                 </div>
                                 <div class="form-check ms-3">
-                                    <input class="form-check-input" type="checkbox" name="features" value="go_bp" id="go_bp">
+                                    <input class="form-check-input go-checkbox" type="checkbox" name="features" value="go_bp" id="go_bp">
                                     <label class="form-check-label" for="go_bp">Biological Process (BP)</label>
                                 </div>
                                 <div class="form-check ms-3">
-                                    <input class="form-check-input" type="checkbox" name="features" value="go_cc" id="go_cc">
+                                    <input class="form-check-input go-checkbox" type="checkbox" name="features" value="go_cc" id="go_cc">
                                     <label class="form-check-label" for="go_cc">Cellular Component (CC)</label>
                                 </div>
                             </div>
-                            <!-- 其他 Ontology (保留你原本的) -->
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="features" value="disease_ontology" id="disease_ontology">
-                                    <label class="form-check-label fw-bold text-info" for="disease_ontology">Disease Ontology (DO)</label>
-                                </div>
-                            </div>
-                            <!-- ... 其他選項 ... -->
                         </div>
                     </div>
 
@@ -920,6 +914,13 @@ WBGene00021929`;
     <script>
         function toggleAllFGG(source) {
             checkboxes = document.querySelectorAll('.fgg-checkbox');
+            for(var i=0, n=checkboxes.length;i<n;i++) {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+
+        function toggleAllGO(source) {
+            checkboxes = document.querySelectorAll('.go-checkbox');
             for(var i=0, n=checkboxes.length;i<n;i++) {
                 checkboxes[i].checked = source.checked;
             }
